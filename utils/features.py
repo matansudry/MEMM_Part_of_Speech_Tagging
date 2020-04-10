@@ -164,5 +164,11 @@ def features_to_vector(word_input, number_of_features):
     features_vector[7] = f107(word_input)
     features_vector[8] = f108_numbers(word_input)
     features_vector[9] = f109_capital_letters(word_input)
+    features_vector[10] = f110(word_input)
+    features_vector[11] = f111(word_input)
+    features_vector[12] = f112(word_input)
+    features_vector[13] = f113(word_input)
+    features_vector[14] = f114(word_input)
+    features_vector[15] = f115(word_input)
     return features_vector
 

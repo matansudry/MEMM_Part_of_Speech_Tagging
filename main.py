@@ -16,7 +16,7 @@ load_preprocess = False
 verbose = 1
 
 # variables
-number_of_features = 10
+number_of_features = 16 # need to keep this variable update
 limit_common_words = 5
 
 # data files
@@ -25,11 +25,6 @@ comp2_path = 'data/comp2.words'
 test1_path = 'data/test1.wtag'
 train1_path = 'data/train1.wtag'
 train2_path = 'data/train2.wtag'
-
-
-
-
-
 
 
 def main():
