@@ -67,29 +67,32 @@ class Optimization:
         return ((-1) * (sum_liner_term  - sum_normalization_term - regularization))
 
     def get_indexes(self, tag, word, next_word, prev_word, tag_2, tag_1):
-        # gettring all the indexes of the word and tag
+        # getting all the indexes of the word and tag
+
         index_dict = []
-        index_dict.append(self.feature2id.f100_words_tags_count_dict[(word, tag)])
+        if (word, tag) in self.feature2id.f100_words_tags_count_dict:
+            index_dict.append(self.feature2id.f100_words_tags_count_dict[(word, tag)])
         suffix = get_suffix(word)
-        if suffix != None:
+        if suffix != None and (suffix, tag) in self.feature2id.f101_suffixes:
             index_dict.append(self.feature2id.f101_suffixes[(suffix, tag)])
         prefix = get_prefix(word)
-        if prefix != None:
+        if prefix != None and (prefix, tag) in self.feature2id.f102_prefix:
             index_dict.append(self.feature2id.f102_prefix[(prefix, tag)])
-        if tag_2 != None:
+        if tag_2 != None and (tag_2, tag_1, tag) in self.feature2id.f103_trigram:
             index_dict.append(self.feature2id.f103_trigram[(tag_2, tag_1, tag)])
-        if tag_1 != None:
+        if tag_1 != None and (tag_1, tag) in self.feature2id.f104_bigram:
             index_dict.append(self.feature2id.f104_bigram[(tag_1, tag)])
 
-        index_dict.append(self.feature2id.f105_tag_common[tag])
+        if tag in self.feature2id.f105_tag_common:
+            index_dict.append(self.feature2id.f105_tag_common[tag])
 
-        if prev_word != None:
+        if prev_word != None and (prev_word, tag) in self.feature2id.f106_prev_word:
             index_dict.append(self.feature2id.f106_prev_word[(prev_word, tag)])
-        if tag_1 != None:
+        if tag_1 != None and (word, tag_1) in self.feature2id.f107_next_word:
             index_dict.append(self.feature2id.f107_next_word[(word, tag_1)])
-        if get_number(word) == True:
+        if get_number(word) == True and (word, tag) in self.feature2id.f108_numbers:
             index_dict.append(self.feature2id.f108_numbers[(word, tag)])
-        if get_capital_letter(word) == True:
+        if get_capital_letter(word) == True and (word, tag) in self.feature2id.f109_capital_letters:
             index_dict.append(self.feature2id.f109_capital_letters[(word, tag)])
         return index_dict
 
