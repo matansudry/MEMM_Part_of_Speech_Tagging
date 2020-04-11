@@ -30,24 +30,13 @@ train2_path = 'data/train2.wtag'
 def main():
 
     #load files and preprocessing
-    comp1 = open(comp1_path, 'r')
-    comp2 = open(comp2_path, 'r')
-    test1 = open(test1_path, 'r')
-    train1 = open(train1_path, 'r')
-    train2 = open(train2_path, 'r')
-    train1_model = feature_statistics_class(train1, limit_common_words)
+    train1_model = feature_statistics_class(train1_path, limit_common_words)
     train1_model.get_statistics()
     id_class = feature2id_class(train1_model, threshold)
     id_class.get_features()
 
-    #train2_model = feature_statistics_class(train2, limit_common_words)
-    #test_model = Test_tagger(test1, limit_common_words)
-
-
-
-
-
-
+    #train2_model = feature_statistics_class(train2_path, limit_common_words)
+    #test_model = Test_tagger(test1_path, limit_common_words)
 
 
 if __name__ == "__main__":
