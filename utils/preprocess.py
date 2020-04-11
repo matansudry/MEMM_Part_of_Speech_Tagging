@@ -4,12 +4,13 @@ from scipy.optimize import fmin_l_bfgs_b
 
 
 class feature_statistics_class():
-    def __init__(self, file, limit_common_words):
+    def __init__(self, file, limit_common_words, lamda):
         self.TagsPerWord = {}
         self.WordCount = {}
         self.tags = ['*']
         self.words = []
         self.unseparated = []
+        self.lamda = lamda
         self.sentences_with_word_and_tag = []
         self.sentences_with_only_word = []
         self.sentences_with_only_tag = []
@@ -58,7 +59,7 @@ class feature_statistics_class():
 
     def get_statistics(self):
         for sentence in self.sentences_with_word_and_tag:
-            tag = None
+            tag = '*'
             word = None
             next_word = None
             prev_word = None
@@ -162,7 +163,7 @@ class feature2id_class():
 
     def get_features(self):
         for sentence in self.feature_statistics.sentences_with_word_and_tag:
-            tag = None
+            tag = '*'
             word = None
             next_word = None
             prev_word = None

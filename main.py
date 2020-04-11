@@ -1,8 +1,8 @@
 import numpy as np
 import scipy
-from scipy.optimize import fmin_l_bfgs_b
-#from utils.features import features_to_vector
+from scipy.optimize import fmin_l_bfgs_b, minimize
 from utils.preprocess import feature_statistics_class, feature2id_class, Test_tagger, separate_tag_from_word, common_words
+from utils.classifier import Optimization
 from utils.score import accuracy, top_k_erros, confusion_matrix
 
 
@@ -18,6 +18,8 @@ verbose = 1
 # variables
 limit_common_words = 5
 threshold = 0
+args = None
+lamda = 0.1
 
 # data files
 comp1_path = 'data/comp1.words'
@@ -35,11 +37,15 @@ def main():
     test1 = open(test1_path, 'r')
     train1 = open(train1_path, 'r')
     train2 = open(train2_path, 'r')
-    train1_model = feature_statistics_class(train1, limit_common_words)
-    train1_model.get_statistics()
-    id_class = feature2id_class(train1_model, threshold)
-    id_class.get_features()
+    statistics = feature_statistics_class(train1, limit_common_words, lamda)
+    statistics.get_statistics()
+    feature2id = feature2id_class(statistics, threshold)
+    feature2id.get_features()
 
+    #Optimizion
+    matan = Optimization(statistics, feature2id, args)
+    matan.likelihood()
+    matan=1
     #train2_model = feature_statistics_class(train2, limit_common_words)
     #test_model = Test_tagger(test1, limit_common_words)
 
