@@ -1,6 +1,6 @@
 import numpy as np
 import scipy
-from scipy.optimize import minimize
+from scipy.optimize import fmin_l_bfgs_b
 
 
 def accuracy():
