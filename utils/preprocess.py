@@ -24,31 +24,32 @@ class feature_statistics_class():
         self.f107_next_word = {}
         self.f108_numbers = {}
         self.f109_capital_letters = {}
-        for line in file:
-            sentence_with_word_and_tag = []
-            sentence_with_only_word = []
-            sentence_with_only_tag = []
-            for wordtag in line.split():
-                sentence_with_word_and_tag.append(wordtag)
-                self.unseparated.append(wordtag)
-                word, tag = separate_tag_from_word(wordtag)
-                sentence_with_only_word.append(word)
-                sentence_with_only_tag.append(tag)
-                if word not in self.TagsPerWord:
-                    self.TagsPerWord[word] = [tag]
-                elif tag not in self.TagsPerWord[word]:
-                    self.TagsPerWord[word].append(tag)
-                if word not in self.WordCount:
-                    self.WordCount[word] = 1
-                else:
-                    self.WordCount[word] = self.WordCount[word] + 1
-                if tag not in self.tags:
-                    self.tags.append(tag)
-                if word not in self.words:
-                    self.words.append(word)
-            self.sentences_with_word_and_tag.append(sentence_with_word_and_tag)
-            self.sentences_with_only_word.append(sentence_with_only_word)
-            self.sentences_with_only_tag.append(sentence_with_only_tag)
+        with open(file, 'r') as f:
+            for line in f:
+                sentence_with_word_and_tag = []
+                sentence_with_only_word = []
+                sentence_with_only_tag = []
+                for wordtag in line.split():
+                    sentence_with_word_and_tag.append(wordtag)
+                    self.unseparated.append(wordtag)
+                    word, tag = separate_tag_from_word(wordtag)
+                    sentence_with_only_word.append(word)
+                    sentence_with_only_tag.append(tag)
+                    if word not in self.TagsPerWord:
+                        self.TagsPerWord[word] = [tag]
+                    elif tag not in self.TagsPerWord[word]:
+                        self.TagsPerWord[word].append(tag)
+                    if word not in self.WordCount:
+                        self.WordCount[word] = 1
+                    else:
+                        self.WordCount[word] = self.WordCount[word] + 1
+                    if tag not in self.tags:
+                        self.tags.append(tag)
+                    if word not in self.words:
+                        self.words.append(word)
+                self.sentences_with_word_and_tag.append(sentence_with_word_and_tag)
+                self.sentences_with_only_word.append(sentence_with_only_word)
+                self.sentences_with_only_tag.append(sentence_with_only_tag)
         self.CommonWords = list(common_words(self.WordCount, limit_common_words))
         self.tag_indices = {}
         ind = 0
@@ -244,18 +245,19 @@ class Test_tagger():
         self.sentences_with_tag_and_word = []
         self.sentences_with_word_only = []
         self.sentences_with_tag_only = []
-        for line in file:
-            sentence_with_tag_and_word = []
-            sentence_with_word_only = []
-            sentence_with_tag_only = []
-            for wordtag in line.split():
-                sentence_with_tag_and_word.append(wordtag)
-                word, tag = separate_tag_from_word(wordtag)
-                sentence_with_word_only.append(word)
-                sentence_with_tag_only.append(tag)
-            self.sentences_with_tag_and_word.append(sentence_with_tag_and_word)
-            self.sentences_with_word_only.append(sentence_with_word_only)
-            self.sentences_with_tag_only.append(sentence_with_tag_only)
+        with open(file, 'r') as f:
+            for line in f:
+                sentence_with_tag_and_word = []
+                sentence_with_word_only = []
+                sentence_with_tag_only = []
+                for wordtag in line.split():
+                    sentence_with_tag_and_word.append(wordtag)
+                    word, tag = separate_tag_from_word(wordtag)
+                    sentence_with_word_only.append(word)
+                    sentence_with_tag_only.append(tag)
+                self.sentences_with_tag_and_word.append(sentence_with_tag_and_word)
+                self.sentences_with_word_only.append(sentence_with_word_only)
+                self.sentences_with_tag_only.append(sentence_with_tag_only)
 
 
 def separate_tag_from_word(word_with_tag):
