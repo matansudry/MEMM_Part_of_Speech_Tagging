@@ -3,6 +3,92 @@ import scipy
 from scipy.optimize import fmin_l_bfgs_b
 
 
+t2, t1, w, i, t = 'NN', 'VB', ['preprocessing'], 0, 'NN'
+
+def prefix_str(word, pre):
+    return word[:len(pre)] == pre
+
+def suffix_str(word, suf):
+    return word[len(suf)-1:] == suf
+
+def prefix(word, pre):
+    return word[:pre]
+
+def suffix(word, suf):
+    return word[suf-1:]
+
+def substr(word, sub):
+    return sub in word
+
+def call(func, *args):
+    return func(*args)
+
+class FeatureGroup:
+    # class_counter - global attr, counts specific features
+    class_counter = 0
+    
+    def __init__(self, hash_rules, hash_set, *args, **kwargs):
+        self.hash_rules = hash_rules
+        try:
+            index = tuple([eval(val) for val in self.hash_rules])
+        except Exception as e:
+            index = False
+        assert index
+        self._hash_dict = dict(zip(hash_set, list(range(FeatureGroup.class_counter, FeatureGroup.class_counter + len(hash_set)))))
+        FeatureGroup.class_counter += len(self._hash_dict)
+        self.kwargs = kwargs
+        self.args = args
+
+    @property
+    def hash_dict(self):
+        return self._hash_dict
+    
+    def __del__(self):
+        FeatureGroup.class_counter -= len(self._hash_dict)
+
+    def __call__(self, t2, t1, w, i, t):
+        try:
+            return self._hash_dict(tuple([eval(val) for val in self.hash_rules]))
+        except Exception as e:
+            return None
+
+    def __len__(self):
+        return len(self._hash_dict)
+
+    def __str__(self):
+        return 'FeatureGroup(' + str(self.hash_rules) + ', ' + str(self._hash_dict) + ')'
+
+    def __repr__(self):
+        return 'FeatureGroup(' + str(self.hash_rules) + ', ' + str(self._hash_dict) + ')'
+
+class Feature:
+    def __init__(self, *args, **kwargs):
+        self.equality_inds = kwargs
+        self.rules = args
+
+    def __call__(self, t2, t1, w, i, t):
+        for arg in ['t2', 't1', 'i', 't']:
+            if arg in self.equality_inds and eval(arg) != self.equality_inds[arg]:
+                return False
+
+        for rule in self.rules:
+            if not eval(rule):
+                return False
+        return True
+
+    def __str__(self):
+        return str(self.equality_inds) + str(self.rules)
+
+
+
+
+
+
+
+
+
+
+
 def f100(word_input):
     tag = word_input[1]
     index = word_input[0][3]

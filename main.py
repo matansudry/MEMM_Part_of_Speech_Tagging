@@ -1,9 +1,11 @@
 import numpy as np
 import scipy
-from scipy.optimize import fmin_l_bfgs_b, minimize
-from utils.preprocess import feature_statistics_class, feature2id_class, Test_tagger, separate_tag_from_word, common_words
-from utils.classifier import Optimization
-from utils.score import accuracy, top_k_erros, confusion_matrix
+from scipy import optimize
+from utils import preprocess
+# from scipy.optimize import fmin_l_bfgs_b, minimize
+# from utils.preprocess import feature_statistics_class, feature2id_class, Test_tagger, separate_tag_from_word, common_words
+# from utils import classifier import Optimization
+from utils import score# import accuracy, top_k_erros, confusion_matrix
 
 
 # params, maybe need to remove that
@@ -32,22 +34,17 @@ train2_path = 'data/train2.wtag'
 def main():
 
     #load files and preprocessing
-    comp1 = open(comp1_path, 'r')
-    comp2 = open(comp2_path, 'r')
-    test1 = open(test1_path, 'r')
-    train1 = open(train1_path, 'r')
-    train2 = open(train2_path, 'r')
-    statistics = feature_statistics_class(train1, limit_common_words, lamda)
+    statistics = preprocess.feature_statistics_class(train1_path, limit_common_words, lamda)
     statistics.get_statistics()
-    feature2id = feature2id_class(statistics, threshold)
+    feature2id = preprocess.feature2id_class(statistics, threshold)
     feature2id.get_features()
 
     #Optimizion
-    matan = Optimization(statistics, feature2id, args)
+    matan = classifier.Optimization(statistics, feature2id, args)
     matan.likelihood()
-    matan=1
-    #train2_model = feature_statistics_class(train2, limit_common_words)
-    #test_model = Test_tagger(test1, limit_common_words)
+    matan = 1
+    #train2_model = feature_statistics_class(train2_path, limit_common_words)
+    #test_model = preprocess.Test_tagger(test1_path, limit_common_words)
 
 
 

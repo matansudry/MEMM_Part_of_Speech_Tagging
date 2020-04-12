@@ -4,7 +4,7 @@ from scipy.optimize import fmin_l_bfgs_b
 
 
 class feature_statistics_class():
-    def __init__(self, file, limit_common_words, lamda):
+    def __init__(self, file_name, limit_common_words=5, lamda=0.1):
         self.TagsPerWord = {}
         self.WordCount = {}
         self.tags = ['*']
@@ -24,7 +24,7 @@ class feature_statistics_class():
         self.f107_next_word = {}
         self.f108_numbers = {}
         self.f109_capital_letters = {}
-        with open(file, 'r') as f:
+        with open(file_name, 'r') as f:
             for line in f:
                 sentence_with_word_and_tag = []
                 sentence_with_only_word = []
@@ -241,11 +241,11 @@ class feature2id_class():
 
 
 class Test_tagger():
-    def __init__(self, file, limit_common_words):
+    def __init__(self, file_name, limit_common_words=5):
         self.sentences_with_tag_and_word = []
         self.sentences_with_word_only = []
         self.sentences_with_tag_only = []
-        with open(file, 'r') as f:
+        with open(file_name, 'r') as f:
             for line in f:
                 sentence_with_tag_and_word = []
                 sentence_with_word_only = []
