@@ -3,25 +3,60 @@ import scipy
 from scipy.optimize import fmin_l_bfgs_b
 
 
-t2, t1, w, i, t = 'NN', 'VB', ['preprocessing'], 0, 'NN'
+t2, t1, w, i, t = 'NN', 'VB', ['preprocessing' for _ in range(200)], 100, 'NN'
+
 
 def prefix(word, pre):
     return word[:pre]
 
+
 def suffix(word, suf):
-    return word[suf-1:]
+    return word[-suf:]
+
 
 def call(func, *args):
     return func(*args)
 
+
+class FeatureVector:
+    # global attr, counts specific features in order to sync feature_vector indecies
+    counter = 0
+
+    def __init__(self, feats):
+        if isinstance(feats, dict):
+            self.feats = feats.values()
+        else:
+            self.feats = feats
+            
+        # unit testing
+        try:
+            for feat in self.feats:
+                _ = feat(t2, t1, w, i, t)
+            index = True
+        except Exception as e:
+            index = False
+        assert index
+        
+    def __call__(self, t2, t1, w, i, t):
+        vec = np.zeros(FeatureVector.counter)
+        for feat in self.feats:
+            index = feat(t2, t1, w, i, t)
+            if index:
+                vec[index] = 1
+        return vec
+        
+    def add(self, feat):
+        self.feats.append(feat)
+
+    def __len__(self):
+        return FeatureVector.counter
+
+
 class FeatureGroup:
-    # class_counter - global attr, counts specific features in order to sync feature_vector indecies
-    class_counter = 0
-    
     def __init__(self, hash_rules, hash_set, *args, **kwargs):
         self.hash_rules = hash_rules
-        self._hash_dict = dict(zip(hash_set, list(range(FeatureGroup.class_counter, FeatureGroup.class_counter + len(hash_set)))))
-        FeatureGroup.class_counter += len(self._hash_dict)
+        self._hash_dict = dict(zip(hash_set, list(range(FeatureVector.counter, FeatureVector.counter + len(hash_set)))))
+        FeatureVector.counter += len(self._hash_dict)
         self.kwargs = kwargs  # unused
         self.args = args  # unused
 
@@ -37,7 +72,7 @@ class FeatureGroup:
         return self._hash_dict
     
     def __del__(self):
-        FeatureGroup.class_counter -= len(self._hash_dict)
+        FeatureVector.counter -= len(self._hash_dict)
 
     def __call__(self, t2, t1, w, i, t):
         try:
@@ -49,28 +84,46 @@ class FeatureGroup:
         return len(self._hash_dict)
 
     def __str__(self):
-        return 'FeatureGroup(' + str(self.hash_rules) + ', ' + str(self._hash_dict) + ')'
+        return f'FeatureGroup({str(self.hash_rules)}, dict(...))'
 
     def __repr__(self):
-        return 'FeatureGroup(' + str(self.hash_rules) + ', ' + str(self._hash_dict) + ')'
+        return f'FeatureGroup({str(self.hash_rules)}, dict(...))'
 
-# class Feature:
-    # def __init__(self, *args, **kwargs):
-        # self.equality_inds = kwargs
-        # self.rules = args
+class Feature:
+    def __init__(self, *args):
+        self.rules = args
+        self.index = FeatureVector.counter
+        FeatureVector.counter += 1
+        
+        # unit testing
+        try:
+            for rule in self.rules:
+                if not eval(rule):
+                    pass
+                else:
+                    pass
+            index = True
+        except Exception as e:
+            index = False
+        assert index
 
-    # def __call__(self, t2, t1, w, i, t):
-        # for arg in ['t2', 't1', 'i', 't']:
-            # if arg in self.equality_inds and eval(arg) != self.equality_inds[arg]:
-                # return False
+    def __len__(self):
+        return 1
 
-        # for rule in self.rules:
-            # if not eval(rule):
-                # return False
-        # return True
+    def __del__(self):
+        FeatureVector.counter -= 1
 
-    # def __str__(self):
-        # return str(self.equality_inds) + str(self.rules)
+    def __call__(self, t2, t1, w, i, t):
+        for rule in self.rules:
+            if not eval(rule):
+                return None
+        return self.index
+
+    def __str__(self):
+        return f'Feature({str(self.rules)})'
+
+    def __repr__(self):
+        return f'Feature({str(self.rules)})'
 
 
 

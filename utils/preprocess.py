@@ -261,15 +261,7 @@ class Test_tagger():
 
 
 def separate_tag_from_word(word_with_tag):
-    word = ''
-    tag = ''
-    count = 0
-    while word_with_tag[count] != '_':
-        word = word + word_with_tag[count]
-        count = count + 1
-    for i in range(count + 1, len(word_with_tag)):
-        tag = tag + word_with_tag[i]
-    return word, tag
+    return word_with_tag.split('_')
 
 
 def common_words(words_dict, limit):
@@ -281,30 +273,18 @@ def common_words(words_dict, limit):
 
 
 def get_prefix(word):
-    word_len = len(word)
-    if word_len < 3:
-        return None
-    else:
-        return (word[0] + word[1] + word[2])
+    return word[:3]
 
 
 def get_suffix(word):
-    word_len = len(word)
-    if word_len < 3:
-        return None
-    else:
-        matan = word[word_len - 3]
-        return (word[word_len - 3] + word[word_len - 2] + word[word_len - 1])
+    return word[-3:]
 
 
 def get_number(word):
-    for i in word:
-        if i.isdigit():
-            return True
-    return False
+    return any(char.isdigit() for char in word)
 
 
 def get_capital_letter(word):
-    if word[0].isupper():
-        return True
-    return False
+    return word == word.lower()
+
+
