@@ -1,14 +1,37 @@
-import numpy as np
-import pandas as pd
+import os
 import math
 import time
 import random
+import numpy as np
+import pandas as pd
 from scipy import optimize
-import pickle
+
+
+def load_model(version, models_path, epoch=-1, seed=42, prints=True):
+    import dill
+
+    model_path = os.path.join(models_path, naming_scheme(version, epoch, seed))
+    try:
+        with open(model_path, "rb") as f:
+            model = dill.load(f)
+    except Exception:
+        print("Loading Error")
+        raise
+    
+    if prints and model.get_log() > 0:
+        print("model version:", model.version)
+        print("epochs: {}\ntrain_time: {:.3f}\n".format(model.get_log('epoch'), model.get_log('train_time')))
+        print("last train_loss: {:.6f}".format(model.get_log('train_loss')))
+        print("last val_loss: {:.6f}".format(model.get_log('val_loss')))
+        print("last train_score: {:.6f}".format(model.get_log('train_score')))
+        print("last val_score: {:.6f}".format(model.get_log('val_score')))
+        print("best val_score: {:.4f} at epoch {:d}".format(model.get_log('val_score'), model.get_log('epoch', epoch='best')))
+    return model
 
 
 class Model:
-    def __init__(self, w0, tags, feature_vector, seed, score_func, models_path, save):
+    def __init__(self, version, w0, tags, feature_vector, seed, score_func, models_path, save):
+        self.version = version
         self.start_fmin_l_bfgs_b_epoch = None
         self.tags = list(tags)
         self.weights = w0
@@ -29,13 +52,10 @@ class Model:
         if save:
             self.save(first=True)
 
-    def __call__(self, t2, t1, w, i):
-        # TODO: implement viterbi
-        # for tag in self.tags:
-            # feat_list_t = feature_vector(t2, t1, w, i, tag, fmt='list')
-        return random.choice(self.tags)
+    def __call__(self, sentence, beam=None):
+        return viterbi(self, sentence, beam)
 
-    def get_log(self, col='iter', epoch=-1):
+    def get_log(self, col='epoch', epoch=-1):
         try:
             if epoch == -1:
                 index = self.log.tail(1).index[0]
@@ -45,7 +65,7 @@ class Model:
                 index = epoch
         except Exception:
             return 0
-        if col == 'iter':
+        if col == 'epoch':
             return index
         else:
             try:
@@ -54,6 +74,7 @@ class Model:
                 return None
 
     def save(self, first=False, best=False, epoch=False):
+        import dill
         if first:
             if not os.path.exists(self.models_path):
                 os.mkdir(self.models_path)
@@ -61,20 +82,20 @@ class Model:
                 os.mkdir(os.path.join(self.models_path, naming_scheme(self.version, -1, self.seed, folder=True)))
         
         with open(os.path.join(self.models_path, naming_scheme(self.version, -1, self.seed)), 'wb') as f:
-            pickle.dump(self.weights, f)
+            dill.dump(self, f)
         if best:
             with open(os.path.join(self.models_path, naming_scheme(self.version, 'best', self.seed)), 'wb') as f:
-                pickle.dump(self.weights, f)
+                dill.dump(self, f)
         if epoch:
             with open(os.path.join(self.models_path, naming_scheme(self.version, self.get_log(), self.seed)), 'wb') as f:
-                pickle.dump(self.weights, f)
+                dill.dump(self, f)
 
     def predict(self, dataset):
         pred_tags = []
         true_tags = []
-        for t2, t1, w, i, t in dataset:
-            pred_tags.append(self(t2, t1, w, i))
-            true_tags.append(t)
+        for sentence in dataset.sentences:
+            pred_tags.append(self(sentence[0]))
+            true_tags.append(sentence[1])
         return pred_tags, true_tags
 
     def train(self, epochs, train_dataset, val_dataset=None, batch_size=None, weight_decay=0.0, iprint=-1, save=False, tqdm_bar=False):
@@ -225,12 +246,16 @@ def sparse_mult(np_vec, sparse_list):
 def naming_scheme(version, epoch, seed, folder=False):
     if folder:
         return 'V{}'.format(version)
-    return os.path.join('V{}'.format(version), 'checkpoint_V{}_SEED{}_E{}.pth'.format(version, epoch, seed))
+    return os.path.join('V{}'.format(version), 'checkpoint_V{}_E{}_SEED{}.pth'.format(version, epoch, seed))
 
 
-def viterbi():
+def viterbi(model, sentence, beam):
+    return [random.choice(model.tags) for i in sentence[0]]
     
-    pass
+    # TODO: implement
+    tag_proba = np.zeros([len(model.tags), len(sentence[0])])
+    for word in sentence[0]:
+        pass
 
 
 
