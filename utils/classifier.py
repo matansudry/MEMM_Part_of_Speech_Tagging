@@ -249,13 +249,29 @@ def naming_scheme(version, epoch, seed, folder=False):
     return os.path.join('V{}'.format(version), 'checkpoint_V{}_E{}_SEED{}.pth'.format(version, epoch, seed))
 
 
-def viterbi(model, sentence, beam):
+def viterbi(model, sentence, beam=None):
     return [random.choice(model.tags) for i in sentence[0]]
-    
-    # TODO: implement
+    root = Node()
     tag_proba = np.zeros([len(model.tags), len(sentence[0])])
-    for word in sentence[0]:
-        pass
+    t1, t = '*', '*'
+    for j, word in enumerate(sentence[0]):
+        t2, t1 = t1, t
+        for tag in model.tags:
+            feat_list_tag = model.feature_vector(t2, t1, w, i, tag, fmt='list')
+            # TODO: implement
+            
+
+class Node:
+    def __init__(self, parent=None, tag=None, p=1, beam=None):
+        self.parent = parent
+        self.beam = beam
+        self.tag = tag
+        self.p = p
+        self.children = []
+    
+    def child(self, tag, p):
+        self.children.append((tag, p, Node(self, tag, p, self.beam)))
+        self.children = sorted(self.children, key=lambda item: item[1], reverse=True)[:self.beam]
 
 
 

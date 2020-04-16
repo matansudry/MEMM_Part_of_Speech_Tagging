@@ -6,11 +6,3 @@ from scipy.optimize import fmin_l_bfgs_b
 def accuracy(pred_tags, true_tags):
     return (np.array(pred_tags) == np.array(true_tags)).mean()
 
-
-def top_k_erros():
-    matan=1
-
-
-def confusion_matrix():
-        matan = 1
-        # need to complete
