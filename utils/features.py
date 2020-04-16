@@ -20,7 +20,7 @@ class FeatureVector:
             * w - a list of the sentence words
             * i - current index
             * t - tag
-            * (optional) return_format - return format 'vec' for a np.ndarray or 'list' of bool indecies
+            * (optional) fmt - return format 'vec' for a np.ndarray or 'list' of bool indecies
         """
         assert fmt in ('list', 'vec', 'both'), 'fmt must be list, vec or both'
         if fmt == 'list':
@@ -49,6 +49,12 @@ class FeatureVector:
         
     def get_calls(self):
         return [feat.calls for feat in self.feats]
+        
+    def invert_veat(self, i):
+        for feat in self.feats:
+            if i in feat.index_range:
+                inv_dict = dict((v, k) for k, v in feat.hash_table.items())
+                return feat, inv_dict[i]
         
     def add(self, foo, hash_keys, calls_counter=False):
         self.feats.append(FeatureGroup(foo, hash_keys, self.counter, calls_counter=calls_counter))
@@ -104,7 +110,7 @@ class FeatureGroup:
         return f'FeatureGroup({self.feat_key})'
 
 
-def create_feature_vector(dataset, group_thresholds=None, pruning=True, get_stats=False, assertions=False):
+def create_feature_vector(dataset, group_thresholds=None, pruning=True, get_stats=False, assertions=False, calls_counter=False):
     feature_vector = FeatureVector()
     feature_groups_dicts = {key: dict() for key in group_thresholds.keys()}
 
@@ -126,7 +132,7 @@ def create_feature_vector(dataset, group_thresholds=None, pruning=True, get_stat
                     del feature_groups_dicts[foo][key]
 
     for foo in feature_groups_dicts:
-        feature_vector.add(foo, feature_groups_dicts[foo])
+        feature_vector.add(foo, feature_groups_dicts[foo], calls_counter=calls_counter)
 
     if assertions:
         index_list = []
