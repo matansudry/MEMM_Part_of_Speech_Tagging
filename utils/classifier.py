@@ -29,12 +29,21 @@ def load_model(version, models_path, epoch=-1, seed=42, prints=True):
     return model
 
 
+def accuracy(pred_tags, true_tags):
+    return (np.array(pred_tags) == np.array(true_tags)).mean()
+
+
+def rnd(model, sentence, beam):
+    return [random.choice(model.tags) for i in sentence]
+
+    
 class Model:
-    def __init__(self, version, w0, tags, feature_vector, seed, score_func, models_path, save):
+    def __init__(self, version, w0, tags, inference, feature_vector, seed, score_func, models_path, save):
         self.version = version
         self.start_fmin_l_bfgs_b_epoch = None
         self.tags = list(tags)
         self.weights = w0
+        self.inference = inference
         self.seed = seed
         self.models_path = models_path
         self.feature_vector = feature_vector
@@ -48,12 +57,13 @@ class Model:
                                          'batch_size',
                                          'best',
                                          'weight_decay',
+                                         'beam',
                                         ])
         if save:
             self.save(first=True)
 
-    def __call__(self, sentence, beam=None):
-        return viterbi(self, sentence, beam)
+    def __call__(self, sentence, beam):
+        return self.inference(self, sentence, beam)
 
     def get_log(self, col='epoch', epoch=-1):
         try:
@@ -90,15 +100,18 @@ class Model:
             with open(os.path.join(self.models_path, naming_scheme(self.version, self.get_log(), self.seed)), 'wb') as f:
                 dill.dump(self, f)
 
-    def predict(self, dataset):
+    def predict(self, sentences, beam, tqdm_bar=False):
+        if tqdm_bar:
+            from tqdm import tqdm
+            sentences = tqdm(sentences)
         pred_tags = []
         true_tags = []
-        for sentence in dataset.sentences:
-            pred_tags.append(self(sentence[0]))
+        for sentence in sentences:
+            pred_tags.append(self(sentence[0], beam))
             true_tags.append(sentence[1])
         return pred_tags, true_tags
 
-    def train(self, epochs, train_dataset, val_dataset=None, batch_size=None, weight_decay=0.0, iprint=-1, save=False, tqdm_bar=False):
+    def train(self, epochs, train_dataset, val_dataset=None, batch_size=None, weight_decay=0.0, iprint=-1, save=False, tqdm_bar=False, beam=None, train_aprox=None, val_aprox=None):
         assert epochs >= 2, 'epochs must be >= 2'
         self.start_fmin_l_bfgs_b_epoch = self.get_log()
         v_min, f_min, d_min = optimize.fmin_l_bfgs_b(func=loss_and_grad,
@@ -111,14 +124,18 @@ class Model:
                                                            weight_decay,
                                                            batch_size,
                                                            save,
-                                                           tqdm_bar),
+                                                           tqdm_bar,
+                                                           beam,
+                                                           train_aprox,
+                                                           val_aprox),
                                                      maxiter=epochs-1,
                                                      iprint=iprint)
         self.weights = v_min
         return v_min, f_min, d_min
 
 
-def loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, train=False, weight_decay=0.0, batch_size=None, save=False, tqdm_bar=False):
+def loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, train=False, weight_decay=0.0,
+                  batch_size=None, save=False, tqdm_bar=False, beam=None, train_aprox=None, val_aprox=None):
     """
     args:
         * v - np.ndarray, model weights
@@ -140,6 +157,7 @@ def loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, t
         * tqdm_bar=False - if to display tqdm progress bar
     """
     if train:
+        model.weights = v
         start_epoch = model.start_fmin_l_bfgs_b_epoch
         epoch = model.get_log() + 1
         start_time = model.get_log('train_time')
@@ -206,9 +224,15 @@ def loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, t
     if train:
         train_loss = -loss/batch_size
         val_loss = loss_and_grad(v, model, val_dataset=val_dataset, train=False, weight_decay=weight_decay, tqdm_bar=tqdm_bar)/len(val_dataset.sentences)
-        
-        train_score = model.score_func(*model.predict(train_dataset))
-        val_score = model.score_func(*model.predict(val_dataset))
+
+        if train_aprox is None:
+            train_aprox = len(train_dataset.sentences)
+
+        if val_aprox is None:
+            val_aprox = len(val_dataset.sentences)
+
+        train_score = model.score_func(*model.predict(train_dataset.sentences[:train_aprox], beam))
+        val_score = model.score_func(*model.predict(val_dataset.sentences[:val_aprox], beam))
         
         best = val_score > model.get_log('val_score', epoch='best')
         train_time = float(start_time + (time.time() - tic)/60)
@@ -222,6 +246,7 @@ def loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, t
                   batch_size,
                   best,
                   weight_decay,
+                  beam,
                   ]
         model.log.loc[epoch] = to_log
 
@@ -240,7 +265,7 @@ def loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, t
 
 
 def sparse_mult(np_vec, sparse_list):
-    return [arg*np_vec[arg] for arg in sparse_list]
+    return [np_vec[arg] for arg in sparse_list]
 
 
 def naming_scheme(version, epoch, seed, folder=False):
@@ -249,32 +274,47 @@ def naming_scheme(version, epoch, seed, folder=False):
     return os.path.join('V{}'.format(version), 'checkpoint_V{}_E{}_SEED{}.pth'.format(version, epoch, seed))
 
 
-def viterbi(model, sentence, beam=None):
-    return [random.choice(model.tags) for i in sentence[0]]
-    root = Node()
-    tag_proba = np.zeros([len(model.tags), len(sentence[0])])
-    t1, t = '*', '*'
-    for j, word in enumerate(sentence[0]):
-        t2, t1 = t1, t
-        for tag in model.tags:
-            feat_list_tag = model.feature_vector(t2, t1, w, i, tag, fmt='list')
-            # TODO: implement
-            
+def viterbi(model, sentence, beam):
+    pi_bp = {}  # pi_bp[i][(t1, t)]
+    pi_bp[-1] = {('*', '*'): ('*', 1)}
+    t1_list, t_list = ['*'], ['*']
+    for i, word in enumerate(sentence):
+        t2_list, t1_list, t_list = t1_list, t_list, model.tags
+        pi_bp[i] = {}
+        for t in t_list:
+            argmax = {}
+            for t2, t1 in pi_bp[i-1]:
+                argmax[t] = softmax(model, t2, t1, sentence, i, t) * pi_bp[i-1][(t2, t1)][1]
+            pi_bp[i][(t1, t)] = sorted(list(argmax.items()), key=lambda x: x[1], reverse=True)[0]
+        if beam:
+            pi_bp[i] = dict(sorted(list(pi_bp[i].items()), key=lambda x: x[1][1], reverse=True)[:beam])
 
-class Node:
-    def __init__(self, parent=None, tag=None, p=1, beam=None):
-        self.parent = parent
-        self.beam = beam
-        self.tag = tag
-        self.p = p
-        self.children = []
-    
-    def child(self, tag, p):
-        self.children.append((tag, p, Node(self, tag, p, self.beam)))
-        self.children = sorted(self.children, key=lambda item: item[1], reverse=True)[:self.beam]
+    tags = []
+    for i, _ in enumerate(sentence):
+        k = len(sentence) - i - 1
+        tags.insert(0, sorted(list(pi_bp[k].items()), key=lambda x: x[1][1], reverse=True)[0][1][0])
+
+    return tags
 
 
-
-
+def softmax(model, t2, t1, w, i, t):
+    q_denominator = 0.0
+    for tag in model.tags:
+        feat_list_tag = model.feature_vector(t2, t1, w, i, tag, fmt='list')
+        
+        sparse_mult_v_feat = sparse_mult(model.weights, feat_list_tag)
+        mult_v_feat = sum(sparse_mult_v_feat)
+        try:
+            exp_mult_v_feat = math.exp(mult_v_feat)
+        except Exception as e:
+            print('math error')
+            print(f'feat_list_tag={feat_list_tag}')
+            print(f'mult_v_feat={mult_v_feat}')
+            print(f'sparse_mult_v_feat={sparse_mult_v_feat}')
+            raise e
+        if tag == t:
+            q_nominator = exp_mult_v_feat
+        q_denominator += exp_mult_v_feat
+    return q_nominator/q_denominator
 
 
