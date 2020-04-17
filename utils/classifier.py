@@ -30,7 +30,14 @@ def load_model(version, models_path, epoch=-1, seed=42, prints=True):
 
 
 def accuracy(pred_tags, true_tags):
-    return (np.array(pred_tags) == np.array(true_tags)).mean()
+    correct = 0
+    total = 0
+    for preds, tags in zip(pred_tags, true_tags):
+        for pred, tag in zip(preds, tags):
+            total += 1
+            if pred == tag:
+                correct += 1
+    return float(correct)/total
 
 
 def rnd(model, sentence, beam):
@@ -271,7 +278,7 @@ def sparse_mult(np_vec, sparse_list):
 def naming_scheme(version, epoch, seed, folder=False):
     if folder:
         return 'V{}'.format(version)
-    return os.path.join('V{}'.format(version), 'checkpoint_V{}_E{}_SEED{}.pth'.format(version, epoch, seed))
+    return os.path.join('V{}'.format(version), 'checkpoint_V{}_E{:03d}_SEED{}.pth'.format(version, epoch, seed))
 
 
 def viterbi(model, sentence, beam):
