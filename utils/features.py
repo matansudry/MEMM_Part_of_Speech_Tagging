@@ -1,7 +1,4 @@
 import numpy as np
-import scipy
-from scipy.optimize import fmin_l_bfgs_b
-import time
 import inspect
 
 t2, t1, w, i, t = 'NN', 'VB', ['preprocessing' for _ in range(200)], 100, 'NN'
@@ -50,7 +47,13 @@ class FeatureVector:
     def get_calls(self):
         return [feat.calls for feat in self.feats]
         
-    def invert_veat(self, i):
+    def invert_feat(self, i):
+        """
+        *** untested ***
+        returns FeatureGroup for i and the i-th tuple in it
+        args:
+            * i - feature index to find feat
+        """
         for feat in self.feats:
             if i in feat.index_range:
                 inv_dict = dict((v, k) for k, v in feat.hash_table.items())
@@ -110,7 +113,16 @@ class FeatureGroup:
         return f'FeatureGroup({self.feat_key})'
 
 
-def create_feature_vector(dataset, group_thresholds=None, pruning=True, get_stats=False, assertions=False, calls_counter=False):
+def create_feature_vector(dataset, group_thresholds, pruning=True, get_stats=False, assertions=False, calls_counter=False):
+    """
+    args:
+        * dataset - preprocess.Dataset
+        * group_thresholds - dict of {lambda(t2, t1, w, i, t): threshold}, feat will be pruned if count <= threshold
+        * pruning - ind perform pruning
+        * get_stats - ind return feat statistics
+        * assertions - perform unit testing
+        * calls_counter - make feature_vector with a counter for calls to each feature_group
+    """
     feature_vector = FeatureVector()
     feature_groups_dicts = {key: dict() for key in group_thresholds.keys()}
 
@@ -128,7 +140,7 @@ def create_feature_vector(dataset, group_thresholds=None, pruning=True, get_stat
     if pruning:
         for foo in group_thresholds:
             for key in list(feature_groups_dicts[foo].keys()):
-                if group_thresholds[foo] is not None and feature_groups_dicts[foo][key] <= group_thresholds[foo]:
+                if feature_groups_dicts[foo][key] <= group_thresholds[foo]:
                     del feature_groups_dicts[foo][key]
 
     for foo in feature_groups_dicts:

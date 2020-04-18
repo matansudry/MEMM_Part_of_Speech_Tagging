@@ -7,7 +7,7 @@ import pandas as pd
 from scipy import optimize
 
 
-def load_model(version, models_path, epoch=-1, seed=42, prints=True):
+def _load_model(version, models_path, epoch=-1, seed=42, prints=True):
     try:
         import dill
     except:
@@ -44,10 +44,6 @@ def accuracy(pred_tags, true_tags):
     return float(correct)/total
 
 
-# def rnd(model, sentence, beam):
-    # return [random.choice(model.tags) for i in sentence]
-
-    
 def naming_scheme(version, epoch, seed, folder=False):
     if folder:
         return 'V{}'.format(version)
@@ -55,6 +51,12 @@ def naming_scheme(version, epoch, seed, folder=False):
 
 
 def viterbi(model, sentence, beam=100):
+    """
+    args:
+        * model
+        * sentence - words only, no tags
+        * beam - beam size
+    """
     bp_pi = {}  # bp_pi[i][(t1, t)] = (t2, p)
     bp_pi[-1] = {('*', '*'): (None, 1)}
     for i in range(len(sentence)):
@@ -64,7 +66,7 @@ def viterbi(model, sentence, beam=100):
             for (t2, t1) in bp_pi[i-1]:
                 if t1 not in argmax_t1:
                     argmax_t1[t1] = {}
-                argmax_t1[t1][t2] = softmax(model, t2, t1, sentence, i, t) * bp_pi[i-1][(t2, t1)][1]
+                argmax_t1[t1][t2] = _softmax(model, t2, t1, sentence, i, t) * bp_pi[i-1][(t2, t1)][1]
             for t1 in argmax_t1:
                 bp_pi[i][(t1, t)] = sorted(list(argmax_t1[t1].items()), key=lambda x: x[1], reverse=True)[0]
         if beam:
@@ -77,7 +79,7 @@ def viterbi(model, sentence, beam=100):
         tags.append(argmax_k[1][0])
     tags.extend([argmax_k[0][0], argmax_k[0][1]])
 
-    return tags[-len(sentence):], bp_pi
+    return tags[-len(sentence):]
 
 class Model:
     def __init__(self, version, w0, tags, feature_vector, inference=viterbi, seed=42, score_func=accuracy, models_path='models', save=False):
@@ -108,7 +110,7 @@ class Model:
         return self.inference(self, sentence, beam)
 
     def load(self, weights=True, feature_vector=True, log=True, epoch=-1, prints=True):
-        loaded_model = load_model(version=self.version, models_path=self.models_path, epoch=epoch, seed=self.seed, prints=prints)
+        loaded_model = _load_model(version=self.version, models_path=self.models_path, epoch=epoch, seed=self.seed, prints=prints)
         self.start_fmin_l_bfgs_b_epoch = loaded_model.start_fmin_l_bfgs_b_epoch
         self.weights = loaded_model.weights
         self.feature_vector = loaded_model.feature_vector
@@ -169,9 +171,23 @@ class Model:
         return pred_tags, true_tags
 
     def train(self, epochs, train_dataset, val_dataset=None, batch_size=None, weight_decay=0.0, iprint=-1, save=False, tqdm_bar=False, beam=None, train_aprox=None, val_aprox=None):
+        """
+        args:
+            * epochs - train epochs
+            * train_dataset
+            * val_dataset=None
+            * batch_size=None
+            * weight_decay=0.0 - lamda regularization parameter
+            * iprint=-1 - optimize.fmin_l_bfgs_b.iprint, prints to command line
+            * save=False - save model after each epoch
+            * tqdm_bar=False - display tqdm progress bars
+            * beam=None - viterbi beam size for model evaluation during training
+            * train_aprox=None - max train samples to aproximate train_score
+            * val_aprox=None - max val samples to aproximate val_score
+        """
         assert epochs >= 2, 'epochs must be >= 2'
         self.start_fmin_l_bfgs_b_epoch = self.get_log()
-        v_min, f_min, d_min = optimize.fmin_l_bfgs_b(func=loss_and_grad,
+        v_min, f_min, d_min = optimize.fmin_l_bfgs_b(func=_loss_and_grad,
                                                      x0=self.weights,
                                                      args=(self,
                                                            epochs,
@@ -191,27 +207,10 @@ class Model:
         return v_min, f_min, d_min
 
 
-def loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, train=False, weight_decay=0.0,
+def _loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, train=False, weight_decay=0.0,
                   batch_size=None, save=False, tqdm_bar=False, beam=None, train_aprox=None, val_aprox=None):
     """
-    args:
-        * v - np.ndarray, model weights
-        * model
-        * train_dataset=None - preprocess.Dataset
-        * val_dataset=None - preprocess.Dataset
-        * train=False - if True call in train mode, False for validation mode
-            * train mode:
-                    * calculates loss and gradient for train_dataset
-                    * calculates loss for val_dataset
-                    * calculates model.score_func for train_dataset and val_dataset
-                    * loggs to model log
-                    * returns -loss, -grad
-            * validation mode:
-                    * calculates -loss for val_dataset
-                    * returns -loss
-        * weight_decay=0.0 - lambda regularization
-        * batch_size=None - batch_size, if None uses full dataset
-        * tqdm_bar=False - if to display tqdm progress bar
+    see Model.train documentation
     """
     if train:
         model.weights = v
@@ -242,7 +241,7 @@ def loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, t
         feat_vec_t, feat_list_t = model.feature_vector(t2, t1, w, i, t, fmt='both')
         
         # linear term
-        loss += sum(sparse_mult(v, feat_list_t))
+        loss += sum(_sparse_mult(v, feat_list_t))
         # empirical count
         if train:
             grad += feat_vec_t
@@ -261,15 +260,15 @@ def loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, t
                 feat_list_tag = model.feature_vector(t2, t1, w, i, tag, fmt='list')
             
             # grad expected_count
-            sparse_mult_v_feat = sparse_mult(v, feat_list_tag)
-            mult_v_feat = sum(sparse_mult_v_feat)
+            _sparse_mult_v_feat = _sparse_mult(v, feat_list_tag)
+            mult_v_feat = sum(_sparse_mult_v_feat)
             try:
                 exp_mult_v_feat = math.exp(mult_v_feat)
             except Exception as e:
                 print('math error')
                 print(f'feat_list_tag={feat_list_tag}')
                 print(f'mult_v_feat={mult_v_feat}')
-                print(f'sparse_mult_v_feat={sparse_mult_v_feat}')
+                print(f'_sparse_mult_v_feat={_sparse_mult_v_feat}')
                 raise e
             if train:
                 expected_count_nominator_vec += feat_vec_tag*exp_mult_v_feat
@@ -283,7 +282,7 @@ def loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, t
     
     if train:
         train_loss = -loss/batch_size
-        val_loss = loss_and_grad(v, model, val_dataset=val_dataset, train=False, weight_decay=weight_decay, tqdm_bar=tqdm_bar)/len(val_dataset.sentences)
+        val_loss = _loss_and_grad(v, model, val_dataset=val_dataset, train=False, weight_decay=weight_decay, tqdm_bar=tqdm_bar)/len(val_dataset.sentences)
 
         if train_aprox is None:
             train_aprox = len(train_dataset.sentences)
@@ -324,24 +323,27 @@ def loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, t
     return -loss
 
 
-def sparse_mult(np_vec, sparse_list):
+def _sparse_mult(np_vec, sparse_list):
     return [np_vec[arg] for arg in sparse_list]
 
 
-def softmax(model, t2, t1, w, i, t):
+def _softmax(model, t2, t1, w, i, t):
+    """
+    helper func for viterbi
+    """
     q_denominator = 0.0
     for tag in model.tags:
         feat_list_tag = model.feature_vector(t2, t1, w, i, tag, fmt='list')
         
-        sparse_mult_v_feat = sparse_mult(model.weights, feat_list_tag)
-        mult_v_feat = sum(sparse_mult_v_feat)
+        _sparse_mult_v_feat = _sparse_mult(model.weights, feat_list_tag)
+        mult_v_feat = sum(_sparse_mult_v_feat)
         try:
             exp_mult_v_feat = math.exp(mult_v_feat)
         except Exception as e:
             print('math error')
             print(f'feat_list_tag={feat_list_tag}')
             print(f'mult_v_feat={mult_v_feat}')
-            print(f'sparse_mult_v_feat={sparse_mult_v_feat}')
+            print(f'_sparse_mult_v_feat={_sparse_mult_v_feat}')
             raise e
         if tag == t:
             q_nominator = exp_mult_v_feat
