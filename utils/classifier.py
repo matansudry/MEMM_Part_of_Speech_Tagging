@@ -5,43 +5,7 @@ import random
 import numpy as np
 import pandas as pd
 from scipy import optimize
-
-
-def _load_model(version, models_path, epoch=-1, seed=42, prints=True):
-    try:
-        import dill
-    except:
-        print('model load failed, could not import dill')
-        return None
-
-    model_path = os.path.join(models_path, naming_scheme(version, epoch, seed))
-    try:
-        with open(model_path, "rb") as f:
-            model = dill.load(f)
-    except Exception:
-        print("Loading Error")
-        raise
-    
-    if prints and model.get_log() > 0:
-        print("model version:", model.version)
-        print("epochs: {}\ntrain_time: {:.3f}\n".format(model.get_log('epoch'), model.get_log('train_time')))
-        print("last train_loss: {:.6f}".format(model.get_log('train_loss')))
-        print("last val_loss: {:.6f}".format(model.get_log('val_loss')))
-        print("last train_score: {:.6f}".format(model.get_log('train_score')))
-        print("last val_score: {:.6f}".format(model.get_log('val_score')))
-        print("best val_score: {:.4f} at epoch {:d}".format(model.get_log('val_score'), model.get_log('epoch', epoch='best')))
-    return model
-
-
-def accuracy(pred_tags, true_tags):
-    correct = 0
-    total = 0
-    for preds, tags in zip(pred_tags, true_tags):
-        for pred, tag in zip(preds, tags):
-            total += 1
-            if pred == tag:
-                correct += 1
-    return float(correct)/total
+from . import metrics 
 
 
 def naming_scheme(version, epoch, seed, folder=False):
@@ -82,7 +46,7 @@ def viterbi(model, sentence, beam=100):
     return tags[-len(sentence):]
 
 class Model:
-    def __init__(self, version, w0, tags, feature_vector, inference=viterbi, seed=42, score_func=accuracy, models_path='models', save=False):
+    def __init__(self, version, w0, tags, feature_vector, inference=viterbi, seed=42, score_func=metrics.accuracy, models_path='models', save=False):
         self.version = version
         self.start_fmin_l_bfgs_b_epoch = None
         self.tags = list(tags)
@@ -104,7 +68,7 @@ class Model:
                                          'beam',
                                         ])
         if save:
-            self.save(first=True)
+            self.save()
 
     def __call__(self, sentence, beam):
         return self.inference(self, sentence, beam)
@@ -134,18 +98,17 @@ class Model:
             except Exception:
                 return None
 
-    def save(self, first=False, best=False, epoch=False):
+    def save(self, best=False, epoch=False):
         try:
             import dill
         except:
             print('model save failed, could not import dill')
             return None
             
-        if first:
-            if not os.path.exists(self.models_path):
-                os.mkdir(self.models_path)
-            if not os.path.exists(os.path.join(self.models_path, naming_scheme(self.version, -1, self.seed, folder=True))):
-                os.mkdir(os.path.join(self.models_path, naming_scheme(self.version, -1, self.seed, folder=True)))
+        if not os.path.exists(self.models_path):
+            os.mkdir(self.models_path)
+        if not os.path.exists(os.path.join(self.models_path, naming_scheme(self.version, -1, self.seed, folder=True))):
+            os.mkdir(os.path.join(self.models_path, naming_scheme(self.version, -1, self.seed, folder=True)))
         
         with open(os.path.join(self.models_path, naming_scheme(self.version, -1, self.seed)), 'wb') as f:
             dill.dump(self, f)
@@ -349,5 +312,31 @@ def _softmax(model, t2, t1, w, i, t):
             q_nominator = exp_mult_v_feat
         q_denominator += exp_mult_v_feat
     return q_nominator/q_denominator
+
+
+def _load_model(version, models_path, epoch=-1, seed=42, prints=True):
+    try:
+        import dill
+    except:
+        print('model load failed, could not import dill')
+        return None
+
+    model_path = os.path.join(models_path, naming_scheme(version, epoch, seed))
+    try:
+        with open(model_path, "rb") as f:
+            model = dill.load(f)
+    except Exception:
+        print("Loading Error")
+        raise
+    
+    if prints and model.get_log() > 0:
+        print("model version:", model.version)
+        print("epochs: {}\ntrain_time: {:.3f}\n".format(model.get_log('epoch'), model.get_log('train_time')))
+        print("last train_loss: {:.6f}".format(model.get_log('train_loss')))
+        print("last val_loss: {:.6f}".format(model.get_log('val_loss')))
+        print("last train_score: {:.6f}".format(model.get_log('train_score')))
+        print("last val_score: {:.6f}".format(model.get_log('val_score')))
+        print("best val_score: {:.4f} at epoch {:d}".format(model.get_log('val_score'), model.get_log('epoch', epoch='best')))
+    return model
 
 
