@@ -1,14 +1,12 @@
 import numpy as np
 import inspect
 
-t2, t1, w, i, t = 'NN', 'VB', ['preprocessing' for _ in range(200)], 100, 'NN'
-
 
 class FeatureVector:
     def __init__(self):
         self.counter = 0
         self.feats = []
-        
+
     def __call__(self, t2, t1, w, i, t, fmt='list'):
         """
         args:
@@ -17,36 +15,36 @@ class FeatureVector:
             * w - a list of the sentence words
             * i - current index
             * t - tag
-            * (optional) fmt - return format 'vec' for a np.ndarray or 'list' of bool indecies
+            * fmt - return format 'vec' for a np.ndarray or 'list' of bool indecies, or both with 'both'
         """
         assert fmt in ('list', 'vec', 'both'), 'fmt must be list, vec or both'
         if fmt == 'list':
             feat_list = []
-            for feat in self.feats:
-                i = feat(t2, t1, w, i, t)
-                if i is not None:
-                    feat_list.append(i)
+            for feat, _ in enumerate(self.feats):
+                key = self.feats[feat](t2, t1, w, i, t)
+                if key is not None:
+                    feat_list.append(key)
             return feat_list
         elif fmt == 'vec':
             feat_vec = np.zeros(self.counter)
-            for feat in self.feats:
-                i = feat(t2, t1, w, i, t)
-                if i is not None:
-                    feat_vec[i] = 1
+            for feat, _ in enumerate(self.feats):
+                key = self.feats[feat](t2, t1, w, i, t)
+                if key is not None:
+                    feat_vec[key] = 1
             return feat_vec
         elif fmt == 'both':
             feat_list = []
             feat_vec = np.zeros(self.counter)
-            for feat in self.feats:
-                i = feat(t2, t1, w, i, t)
-                if i is not None:
-                    feat_vec[i] = 1
-                    feat_list.append(i)
+            for feat, _ in enumerate(self.feats):
+                key = self.feats[feat](t2, t1, w, i, t)
+                if key is not None:
+                    feat_vec[key] = 1
+                    feat_list.append(key)
             return feat_vec, feat_list
-        
+
     def get_calls(self):
         return [feat.calls for feat in self.feats]
-        
+
     def invert_feat(self, i):
         """
         *** untested ***
@@ -58,7 +56,7 @@ class FeatureVector:
             if i in feat.index_range:
                 inv_dict = dict((v, k) for k, v in feat.hash_table.items())
                 return feat, inv_dict[i]
-        
+
     def add(self, foo, hash_keys, calls_counter=False):
         self.feats.append(FeatureGroup(foo, hash_keys, self.counter, calls_counter=calls_counter))
         self.counter += len(hash_keys)
@@ -78,10 +76,11 @@ class FeatureGroup:
         self.hash_table = dict(zip(hash_keys, list(self.index_range)))
         self.calls_counter = calls_counter
         if self.calls_counter:
-            self.hash_calls = dict.fromkeys(hash_keys, 0)
+            self.hash_calls = dict.fromkeys(self.hash_table, 0)
             self.calls = 0
 
         # unit testing
+        t2, t1, w, i, t = 'NN', 'VB', ['preprocessing' for _ in range(200)], 100, 'NN'
         try:
             index = self.foo(t2, t1, w, i, t)
         except Exception as e:
@@ -90,18 +89,15 @@ class FeatureGroup:
         assert len(self.hash_table) > 0, 'self.hash_table is empty'
 
     def __call__(self, t2, t1, w, i, t):
-        if self.calls_counter:
-            self.calls += 1
-            try:
-                ans = self.hash_table[self.foo(t2, t1, w, i, t)]
-                self.hash_calls[ans] += 1
-                return ans
-            except Exception as e:
-                return None
         try:
-            return self.hash_table[self.foo(t2, t1, w, i, t)]
+            key = self.foo(t2, t1, w, i, t)
+            ans = self.hash_table[key]
+            if self.calls_counter:
+                self.calls += 1
+                self.hash_calls[key] += 1
         except Exception as e:
-            pass
+            ans = None
+        return ans
 
     def __len__(self):
         return len(self.hash_table)
@@ -143,8 +139,10 @@ def create_feature_vector(dataset, group_thresholds, pruning=True, get_stats=Fal
                 if feature_groups_dicts[foo][key] <= group_thresholds[foo]:
                     del feature_groups_dicts[foo][key]
 
+    stats_dict = {}
     for foo in feature_groups_dicts:
         feature_vector.add(foo, feature_groups_dicts[foo], calls_counter=calls_counter)
+        stats_dict[feature_vector.feats[-1]] = feature_groups_dicts[foo]
 
     if assertions:
         index_list = []
@@ -154,7 +152,7 @@ def create_feature_vector(dataset, group_thresholds, pruning=True, get_stats=Fal
         assert sorted(index_list) == sorted(list(set(index_list)))
     
     if get_stats:
-        return feature_vector, feature_groups_dicts
+        return feature_vector, stats_dict
     else:
         return feature_vector    
 

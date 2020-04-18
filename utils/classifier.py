@@ -11,6 +11,8 @@ from . import metrics
 def naming_scheme(version, epoch, seed, folder=False):
     if folder:
         return 'V{}'.format(version)
+    if isinstance(epoch, str):
+        return os.path.join('V{}'.format(version), 'checkpoint_V{}_E{}_SEED{}.pth'.format(version, epoch, seed))
     return os.path.join('V{}'.format(version), 'checkpoint_V{}_E{:03d}_SEED{}.pth'.format(version, epoch, seed))
 
 
