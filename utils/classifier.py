@@ -8,7 +8,11 @@ from scipy import optimize
 
 
 def load_model(version, models_path, epoch=-1, seed=42, prints=True):
-    import dill
+    try:
+        import dill
+    except:
+        print('model load failed, could not import dill')
+        return None
 
     model_path = os.path.join(models_path, naming_scheme(version, epoch, seed))
     try:
@@ -40,12 +44,43 @@ def accuracy(pred_tags, true_tags):
     return float(correct)/total
 
 
-def rnd(model, sentence, beam):
-    return [random.choice(model.tags) for i in sentence]
+# def rnd(model, sentence, beam):
+    # return [random.choice(model.tags) for i in sentence]
 
     
+def naming_scheme(version, epoch, seed, folder=False):
+    if folder:
+        return 'V{}'.format(version)
+    return os.path.join('V{}'.format(version), 'checkpoint_V{}_E{:03d}_SEED{}.pth'.format(version, epoch, seed))
+
+
+def viterbi(model, sentence, beam=100):
+    bp_pi = {}  # bp_pi[i][(t1, t)] = (t2, p)
+    bp_pi[-1] = {('*', '*'): (None, 1)}
+    for i in range(len(sentence)):
+        bp_pi[i] = {}
+        for t in model.tags:
+            argmax_t1 = {}
+            for (t2, t1) in bp_pi[i-1]:
+                if t1 not in argmax_t1:
+                    argmax_t1[t1] = {}
+                argmax_t1[t1][t2] = softmax(model, t2, t1, sentence, i, t) * bp_pi[i-1][(t2, t1)][1]
+            for t1 in argmax_t1:
+                bp_pi[i][(t1, t)] = sorted(list(argmax_t1[t1].items()), key=lambda x: x[1], reverse=True)[0]
+        if beam:
+            bp_pi[i] = dict(sorted(list(bp_pi[i].items()), key=lambda x: x[1][1], reverse=True)[:beam])
+
+    tags = []
+    argmax_k = None
+    for i in range(len(sentence)-2):
+        argmax_k = sorted(list(bp_pi[i+2].items()), key=lambda x: x[1][1], reverse=True)[0]
+        tags.append(argmax_k[1][0])
+    tags.extend([argmax_k[0][0], argmax_k[0][1]])
+
+    return tags[-len(sentence):], bp_pi
+
 class Model:
-    def __init__(self, version, w0, tags, inference, feature_vector, seed, score_func, models_path, save):
+    def __init__(self, version, w0, tags, feature_vector, inference=viterbi, seed=42, score_func=accuracy, models_path='models', save=False):
         self.version = version
         self.start_fmin_l_bfgs_b_epoch = None
         self.tags = list(tags)
@@ -72,6 +107,13 @@ class Model:
     def __call__(self, sentence, beam):
         return self.inference(self, sentence, beam)
 
+    def load(self, weights=True, feature_vector=True, log=True, epoch=-1, prints=True):
+        loaded_model = load_model(version=self.version, models_path=self.models_path, epoch=epoch, seed=self.seed, prints=prints)
+        self.start_fmin_l_bfgs_b_epoch = loaded_model.start_fmin_l_bfgs_b_epoch
+        self.weights = loaded_model.weights
+        self.feature_vector = loaded_model.feature_vector
+        self.log = loaded_model.log
+    
     def get_log(self, col='epoch', epoch=-1):
         try:
             if epoch == -1:
@@ -91,7 +133,12 @@ class Model:
                 return None
 
     def save(self, first=False, best=False, epoch=False):
-        import dill
+        try:
+            import dill
+        except:
+            print('model save failed, could not import dill')
+            return None
+            
         if first:
             if not os.path.exists(self.models_path):
                 os.mkdir(self.models_path)
@@ -109,8 +156,11 @@ class Model:
 
     def predict(self, sentences, beam, tqdm_bar=False):
         if tqdm_bar:
-            from tqdm import tqdm
-            sentences = tqdm(sentences)
+            try:
+                from tqdm import tqdm
+                sentences = tqdm(sentences)
+            except:
+                pass
         pred_tags = []
         true_tags = []
         for sentence in sentences:
@@ -182,9 +232,12 @@ def loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, t
     loader = dataset.load_batch(batch_size, train, model.seed)
     
     if tqdm_bar:
-        from tqdm import tqdm
-        loader = tqdm(loader, total=int(batch_size*dataset.words_counter/len(dataset.sentences)))
-    
+        try:
+            from tqdm import tqdm
+            loader = tqdm(loader, total=int(batch_size*dataset.words_counter/len(dataset.sentences)))
+        except:
+            pass
+
     for t2, t1, w, i, t in loader:
         feat_vec_t, feat_list_t = model.feature_vector(t2, t1, w, i, t, fmt='both')
         
@@ -273,35 +326,6 @@ def loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, t
 
 def sparse_mult(np_vec, sparse_list):
     return [np_vec[arg] for arg in sparse_list]
-
-
-def naming_scheme(version, epoch, seed, folder=False):
-    if folder:
-        return 'V{}'.format(version)
-    return os.path.join('V{}'.format(version), 'checkpoint_V{}_E{:03d}_SEED{}.pth'.format(version, epoch, seed))
-
-
-def viterbi(model, sentence, beam):
-    pi_bp = {}  # pi_bp[i][(t1, t)]
-    pi_bp[-1] = {('*', '*'): ('*', 1)}
-    t1_list, t_list = ['*'], ['*']
-    for i, word in enumerate(sentence):
-        t2_list, t1_list, t_list = t1_list, t_list, model.tags
-        pi_bp[i] = {}
-        for t in t_list:
-            argmax = {}
-            for t2, t1 in pi_bp[i-1]:
-                argmax[t] = softmax(model, t2, t1, sentence, i, t) * pi_bp[i-1][(t2, t1)][1]
-            pi_bp[i][(t1, t)] = sorted(list(argmax.items()), key=lambda x: x[1], reverse=True)[0]
-        if beam:
-            pi_bp[i] = dict(sorted(list(pi_bp[i].items()), key=lambda x: x[1][1], reverse=True)[:beam])
-
-    tags = []
-    for i, _ in enumerate(sentence):
-        k = len(sentence) - i - 1
-        tags.insert(0, sorted(list(pi_bp[k].items()), key=lambda x: x[1][1], reverse=True)[0][1][0])
-
-    return tags
 
 
 def softmax(model, t2, t1, w, i, t):
