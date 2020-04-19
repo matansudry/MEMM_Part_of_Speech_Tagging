@@ -1,7 +1,6 @@
 import os
 import math
 import time
-import random
 import numpy as np
 import pandas as pd
 from scipy import optimize
@@ -48,15 +47,18 @@ def viterbi(model, sentence, beam=100):
     return tags[-len(sentence):]
 
 class Model:
-    def __init__(self, version, w0, tags, feature_vector, inference=viterbi, seed=42, score_func=metrics.accuracy, models_path='models', save=False):
+    def __init__(self, version, w0, tags, feature_vector, inference=viterbi, seed=42, score_func=metrics.accuracy, models_path='models', max_weights_history=5, save=False):
         self.version = version
         self.start_fmin_l_bfgs_b_epoch = None
         self.tags = list(tags)
         self.weights = w0
+        self.weights_history = []
+        self.max_weights_history = max_weights_history
         self.inference = inference
         self.seed = seed
         self.models_path = models_path
         self.feature_vector = feature_vector
+        self.val_predictions = None
         self.score_func = score_func
         self.log = pd.DataFrame(columns=['train_time',
                                          'timestamp',
@@ -67,6 +69,8 @@ class Model:
                                          'batch_size',
                                          'best',
                                          'weight_decay',
+                                         'train_aprox',
+                                         'val_aprox',
                                          'beam',
                                         ])
         if save:
@@ -75,12 +79,25 @@ class Model:
     def __call__(self, sentence, beam):
         return self.inference(self, sentence, beam)
 
-    def load(self, weights=True, feature_vector=True, log=True, epoch=-1, prints=True):
+    def avg_weights(self, save=True):
+        self.weights = np.zeros(len(self.weights))
+        for weights in self.weights_history:
+            self.weights += weights
+        self.weights /= len(self.weights_history)
+        if save:
+            self.save(avg=True)
+
+    def load(self, weights=True, weights_history=True, feature_vector=True, log=True, epoch=-1, prints=True):
         loaded_model = _load_model(version=self.version, models_path=self.models_path, epoch=epoch, seed=self.seed, prints=prints)
-        self.start_fmin_l_bfgs_b_epoch = loaded_model.start_fmin_l_bfgs_b_epoch
-        self.weights = loaded_model.weights
-        self.feature_vector = loaded_model.feature_vector
-        self.log = loaded_model.log
+        assert len(self.weights) == len(loaded_model.weights)
+        if weights:
+            self.weights = loaded_model.weights
+        if weights_history:
+            self.weights_history = loaded_model.weights_history
+        if feature_vector:
+            self.feature_vector = loaded_model.feature_vector
+        if log:
+            self.log = loaded_model.log
     
     def get_log(self, col='epoch', epoch=-1):
         try:
@@ -100,7 +117,7 @@ class Model:
             except Exception:
                 return None
 
-    def save(self, best=False, epoch=False):
+    def save(self, best=False, epoch=False, avg=False):
         try:
             import dill
         except:
@@ -116,6 +133,9 @@ class Model:
             dill.dump(self, f)
         if best:
             with open(os.path.join(self.models_path, naming_scheme(self.version, 'best', self.seed)), 'wb') as f:
+                dill.dump(self, f)
+        if avg:
+            with open(os.path.join(self.models_path, naming_scheme(self.version, 'avg', self.seed)), 'wb') as f:
                 dill.dump(self, f)
         if epoch:
             with open(os.path.join(self.models_path, naming_scheme(self.version, self.get_log(), self.seed)), 'wb') as f:
@@ -168,6 +188,8 @@ class Model:
                                                            val_aprox),
                                                      maxiter=epochs-1,
                                                      iprint=iprint)
+        self.weights_history.append(v_min)
+        self.weights_history = self.weights_history[-self.max_weights_history:]
         self.weights = v_min
         return v_min, f_min, d_min
 
@@ -179,6 +201,8 @@ def _loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, 
     """
     if train:
         model.weights = v
+        model.weights_history.append(v)
+        model.weights_history = model.weights_history[-model.max_weights_history:]
         start_epoch = model.start_fmin_l_bfgs_b_epoch
         epoch = model.get_log() + 1
         start_time = model.get_log('train_time')
@@ -270,8 +294,10 @@ def _loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, 
                   batch_size,
                   best,
                   weight_decay,
+                  train_aprox,
+                  val_aprox,
                   beam,
-                  ]
+                  ]  # train_aprox=None, val_aprox=None
         model.log.loc[epoch] = to_log
 
         # epoch progress prints

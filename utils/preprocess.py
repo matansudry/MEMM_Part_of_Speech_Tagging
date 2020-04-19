@@ -1,4 +1,4 @@
-import random
+import numpy as np
 
 
 class Dataset():
@@ -32,15 +32,17 @@ class Dataset():
                     
                 self.sentences.append((words, tags))
         self.batch_loader = self.sentences.copy()
-        self.batch_size = None
         self.shuffled = False
         
-    def _init_loader(self, batch_size, shuffle, seed):
-        self.batch_loader = self.sentences.copy()
+    def _init_loader(self, shuffle, seed, new=False):
+        new_batch_loader = self.sentences.copy()
         if shuffle:
-            random.shuffle(self.batch_loader)
+            np.random.shuffle(new_batch_loader)
         self.shuffled = shuffle
-        self.batch_size = batch_size
+        if new:
+            self.batch_loader = new_batch_loader
+        else:
+            self.batch_loader.extend(new_batch_loader)
 
     def load_batch(self, batch_size=None, shuffle=False, seed=42):
         """
@@ -53,10 +55,13 @@ class Dataset():
         """
         if not batch_size:
             batch_size = len(self.sentences)
-        if not self.batch_loader or self.batch_size != batch_size or self.shuffled != shuffle:
-            self._init_loader(batch_size, shuffle, seed)
-        sentences = self.batch_loader[:self.batch_size]
-        del self.batch_loader[:self.batch_size]
+        if self.shuffled != shuffle:
+            self._init_loader(shuffle, seed, new=True)
+        if len(self.batch_loader) < batch_size:
+            self._init_loader(shuffle, seed)
+            
+        sentences = self.batch_loader[:batch_size]
+        del self.batch_loader[:batch_size]
         for w, tags in sentences:
             t1, t = '*', '*'
             for i in range(len(w)):
