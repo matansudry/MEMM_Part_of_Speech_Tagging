@@ -47,7 +47,8 @@ def viterbi(model, sentence, beam=100):
     return tags[-len(sentence):]
 
 class Model:
-    def __init__(self, version, w0, tags, feature_vector, inference=viterbi, seed=42, score_func=metrics.accuracy, models_path='models', max_weights_history=5, save=False):
+    def __init__(self, version, w0, tags, feature_vector, inference=viterbi, seed=42, score_func=metrics.accuracy,
+                 models_path='models', max_weights_history=5, save=False):
         self.version = version
         self.start_fmin_l_bfgs_b_epoch = None
         self.tags = list(tags)
@@ -88,8 +89,7 @@ class Model:
             self.save(avg=True)
 
     def load(self, weights=True, weights_history=True, feature_vector=True, log=True, epoch=-1, prints=True):
-        loaded_model = _load_model(version=self.version, models_path=self.models_path, epoch=epoch, seed=self.seed, prints=prints)
-        assert len(self.weights) == len(loaded_model.weights)
+        loaded_model = load_model(version=self.version, models_path=self.models_path, epoch=epoch, seed=self.seed, prints=prints)
         if weights:
             self.weights = loaded_model.weights
         if weights_history:
@@ -117,13 +117,37 @@ class Model:
             except Exception:
                 return None
 
+    def plot(self, attributes, plot_title, y_label, scale='linear', basey=10):
+        if not self.get_log():
+            print("model have not trained yet")
+            return
+        epochs = self.log.index
+        to_plot = []
+        for attribute in attributes:
+            to_plot.append(self.log[attribute])
+        min_e = np.min(epochs)
+        max_e = np.max(epochs)
+        for data in to_plot:
+            plt.plot(epochs, data)
+        plt.xlim(min_e - (max_e - min_e)*0.02, max_e + (max_e - min_e)*0.02)
+        plt.xlabel('epoch')
+        plt.ylabel(y_label)
+        if scale == 'log':
+            plt.yscale(scale, basey=basey)
+        else:
+            plt.yscale(scale)
+        plt.legend(attributes)
+        plt.title(plot_title)
+        plt.savefig('{}.png'.format(plot_title), dpi=200)
+        plt.show()
+
     def save(self, best=False, epoch=False, avg=False):
         try:
             import dill
         except:
             print('model save failed, could not import dill')
             return None
-            
+
         if not os.path.exists(self.models_path):
             os.mkdir(self.models_path)
         if not os.path.exists(os.path.join(self.models_path, naming_scheme(self.version, -1, self.seed, folder=True))):
@@ -155,7 +179,7 @@ class Model:
             true_tags.append(sentence[1])
         return pred_tags, true_tags
 
-    def train(self, epochs, train_dataset, val_dataset=None, batch_size=None, weight_decay=0.0, iprint=-1, save=False, tqdm_bar=False, beam=None, train_aprox=None, val_aprox=None):
+    def train(self, epochs, train_dataset, val_dataset=None, batch_size=None, weight_decay=0.0, save=False, tqdm_bar=False, beam=None, train_aprox=None, val_aprox=None):
         """
         args:
             * epochs - train epochs
@@ -163,7 +187,6 @@ class Model:
             * val_dataset=None
             * batch_size=None
             * weight_decay=0.0 - lamda regularization parameter
-            * iprint=-1 - optimize.fmin_l_bfgs_b.iprint, prints to command line
             * save=False - save model after each epoch
             * tqdm_bar=False - display tqdm progress bars
             * beam=None - viterbi beam size for model evaluation during training
@@ -186,16 +209,17 @@ class Model:
                                                            beam,
                                                            train_aprox,
                                                            val_aprox),
+                                                     maxfun=epochs-1,
                                                      maxiter=epochs-1,
-                                                     iprint=iprint)
+                                                     iprint=-1)
         self.weights_history.append(v_min)
         self.weights_history = self.weights_history[-self.max_weights_history:]
         self.weights = v_min
         return v_min, f_min, d_min
 
 
-def _loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, train=False, weight_decay=0.0,
-                  batch_size=None, save=False, tqdm_bar=False, beam=None, train_aprox=None, val_aprox=None):
+def _loss_and_grad(v, model, epochs, train_dataset, val_dataset, train, weight_decay,
+                  batch_size, save, tqdm_bar, beam, train_aprox, val_aprox):
     """
     see Model.train documentation
     """
@@ -218,7 +242,7 @@ def _loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, 
 
     batch_size = len(dataset.sentences) if batch_size is None else batch_size
     loader = dataset.load_batch(batch_size, train, model.seed)
-    
+
     if tqdm_bar:
         try:
             from tqdm import tqdm
@@ -228,26 +252,26 @@ def _loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, 
 
     for t2, t1, w, i, t in loader:
         feat_vec_t, feat_list_t = model.feature_vector(t2, t1, w, i, t, fmt='both')
-        
+
         # linear term
         loss += sum(_sparse_mult(v, feat_list_t))
         # empirical count
         if train:
             grad += feat_vec_t
-        
+
         # loss normalization term
         sum_exp = 0
         # grad expected_count
         if train:
             expected_count_nominator_vec = 0.0
             expected_count_denominator = 0.0
-        
+
         for tag in dataset.tags:
             if train:
                 feat_vec_tag, feat_list_tag = model.feature_vector(t2, t1, w, i, tag, fmt='both')
             else:
                 feat_list_tag = model.feature_vector(t2, t1, w, i, tag, fmt='list')
-            
+
             # grad expected_count
             _sparse_mult_v_feat = _sparse_mult(v, feat_list_tag)
             mult_v_feat = sum(_sparse_mult_v_feat)
@@ -264,14 +288,14 @@ def _loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, 
                 expected_count_denominator += exp_mult_v_feat
             # loss normalization term
             sum_exp += exp_mult_v_feat
-        
+
         loss -= math.log(sum_exp)
         if train:
             grad -= expected_count_nominator_vec / expected_count_denominator
-    
+
     if train:
         train_loss = -loss/batch_size
-        val_loss = _loss_and_grad(v, model, val_dataset=val_dataset, train=False, weight_decay=weight_decay, tqdm_bar=tqdm_bar)/len(val_dataset.sentences)
+        val_loss = _loss_and_grad(v, model, 0, None, val_dataset, False, weight_decay, 0, False, tqdm_bar, 0, 0, 0)/len(val_dataset.sentences)
 
         if train_aprox is None:
             train_aprox = len(train_dataset.sentences)
@@ -281,8 +305,12 @@ def _loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, 
 
         train_score = model.score_func(*model.predict(train_dataset.sentences[:train_aprox], beam))
         val_score = model.score_func(*model.predict(val_dataset.sentences[:val_aprox], beam))
-        
-        best = val_score > model.get_log('val_score', epoch='best')
+
+        if val_aprox > 0:
+            best = val_score > model.get_log('val_score', epoch='best')
+        else:
+            best = val_loss < model.get_log('val_loss', epoch='best')
+
         train_time = float(start_time + (time.time() - tic)/60)
 
         to_log = [train_time,
@@ -309,7 +337,7 @@ def _loss_and_grad(v, model, epochs=None, train_dataset=None, val_dataset=None, 
             model.save(epoch=True)
             if best:
                 model.save(best=True)
-        
+
         return -loss, -grad
     return -loss
 
@@ -325,7 +353,7 @@ def _softmax(model, t2, t1, w, i, t):
     q_denominator = 0.0
     for tag in model.tags:
         feat_list_tag = model.feature_vector(t2, t1, w, i, tag, fmt='list')
-        
+
         _sparse_mult_v_feat = _sparse_mult(model.weights, feat_list_tag)
         mult_v_feat = sum(_sparse_mult_v_feat)
         try:
@@ -342,14 +370,17 @@ def _softmax(model, t2, t1, w, i, t):
     return q_nominator/q_denominator
 
 
-def _load_model(version, models_path, epoch=-1, seed=42, prints=True):
+def load_model(version='', models_path='', epoch=-1, seed=42, prints=True, from_file=None):
     try:
         import dill
     except:
         print('model load failed, could not import dill')
         return None
 
-    model_path = os.path.join(models_path, naming_scheme(version, epoch, seed))
+    if from_file is None:
+        model_path = os.path.join(models_path, naming_scheme(version, epoch, seed))
+    else:
+        model_path = from_file
     try:
         with open(model_path, "rb") as f:
             model = dill.load(f)

@@ -1,6 +1,7 @@
 import inspect
 import csv
 import os
+import pandas as pd
 
 
 class Logger:
@@ -55,7 +56,7 @@ class Logger:
 
     def leadboard(self, col='val_score'):
         leadboard = pd.read_csv(os.path.join(self.path, 'log.csv'))
-        return leadboard.sort_values(col)
+        return leadboard.sort_values(col, ascending=False)
 
 
 

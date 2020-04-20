@@ -37,6 +37,7 @@ class Dataset():
     def _init_loader(self, shuffle, seed, new=False):
         new_batch_loader = self.sentences.copy()
         if shuffle:
+            np.random.seed(seed)
             np.random.shuffle(new_batch_loader)
         self.shuffled = shuffle
         if new:
