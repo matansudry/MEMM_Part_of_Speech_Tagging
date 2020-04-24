@@ -248,7 +248,6 @@ def _loss_and_grad(v, model, epochs, train_dataset, val_dataset, train, weight_d
     
     if batch_growth is not None and batch_growth > 0:
         batch_size = min(batch_size*(2**((epoch - start_epoch - 1)//batch_growth)), len(dataset.sentences))
-    print(batch_size)
     
     loader = dataset.load_batch(batch_size, train, model.seed)
 
