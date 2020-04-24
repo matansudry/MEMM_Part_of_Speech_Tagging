@@ -16,7 +16,7 @@ def naming_scheme(version, epoch, seed, folder=False):
     return os.path.join('V{}'.format(version), 'checkpoint_V{}_E{:03d}_SEED{}.pth'.format(version, epoch, seed))
 
 
-def viterbi(model, sentence, beam=100):
+def viterbi(model, sentence, beam=1):
     """
     args:
         * model
@@ -43,6 +43,7 @@ def viterbi(model, sentence, beam=100):
     for i in range(len(sentence)-2):
         argmax_k = sorted(list(bp_pi[i+2].items()), key=lambda x: x[1][1], reverse=True)[0]
         tags.append(argmax_k[1][0])
+    argmax_k = sorted(list(bp_pi[max(list(bp_pi.keys()))].items()), key=lambda x: x[1][1], reverse=True)[0]
     tags.extend([argmax_k[0][0], argmax_k[0][1]])
 
     return tags[-len(sentence):]
@@ -142,11 +143,16 @@ class Model:
         plt.savefig('{}.png'.format(plot_title), dpi=200)
         plt.show()
 
-    def save(self, best=False, epoch=False, avg=False):
+    def save(self, best=False, epoch=False, avg=False, manual_path=None):
         try:
             import dill
         except:
             print('model save failed, could not import dill')
+            return
+
+        if manual_path is not None:
+            with open(manual_path, 'wb') as f:
+                dill.dump(self, f)
             return
 
         if not os.path.exists(self.models_path):
@@ -284,14 +290,7 @@ def _loss_and_grad(v, model, epochs, train_dataset, val_dataset, train, weight_d
             # grad expected_count
             _sparse_mult_v_feat = _sparse_mult(v, feat_list_tag)
             mult_v_feat = sum(_sparse_mult_v_feat)
-            try:
-                exp_mult_v_feat = math.exp(mult_v_feat)
-            except Exception as e:
-                print('math error')
-                print(f'feat_list_tag={feat_list_tag}')
-                print(f'mult_v_feat={mult_v_feat}')
-                print(f'_sparse_mult_v_feat={_sparse_mult_v_feat}')
-                raise e
+            exp_mult_v_feat = math.exp(mult_v_feat)
             if train:
                 expected_count_nominator_vec += feat_vec_tag*exp_mult_v_feat
                 expected_count_denominator += exp_mult_v_feat
@@ -366,14 +365,7 @@ def _softmax(model, t2, t1, w, i, t):
 
         _sparse_mult_v_feat = _sparse_mult(model.weights, feat_list_tag)
         mult_v_feat = sum(_sparse_mult_v_feat)
-        try:
-            exp_mult_v_feat = math.exp(mult_v_feat)
-        except Exception as e:
-            print('math error')
-            print(f'feat_list_tag={feat_list_tag}')
-            print(f'mult_v_feat={mult_v_feat}')
-            print(f'_sparse_mult_v_feat={_sparse_mult_v_feat}')
-            raise e
+        exp_mult_v_feat = math.exp(mult_v_feat)
         if tag == t:
             q_nominator = exp_mult_v_feat
         q_denominator += exp_mult_v_feat
