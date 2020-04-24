@@ -197,6 +197,7 @@ class Model:
         """
         assert epochs >= 2, 'epochs must be >= 2'
         self.start_fmin_l_bfgs_b_epoch = self.get_log()
+        np.random.seed(self.seed)
         v_min, f_min, d_min = optimize.fmin_l_bfgs_b(func=_loss_and_grad,
                                                      x0=self.weights,
                                                      args=(self,
