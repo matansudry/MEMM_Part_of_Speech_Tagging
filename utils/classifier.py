@@ -147,7 +147,7 @@ class Model:
             import dill
         except:
             print('model save failed, could not import dill')
-            return None
+            return
 
         if not os.path.exists(self.models_path):
             os.mkdir(self.models_path)
@@ -180,7 +180,7 @@ class Model:
             true_tags.append(sentence[1])
         return pred_tags, true_tags
 
-    def train(self, epochs, train_dataset, val_dataset=None, batch_size=None, weight_decay=0.0, save=False, tqdm_bar=False, beam=None, train_aprox=None, val_aprox=None):
+    def train(self, epochs, train_dataset, val_dataset=None, batch_size=None, weight_decay=0.0, save=False, tqdm_bar=False, beam=None, train_aprox=None, val_aprox=None, batch_growth=None):
         """
         args:
             * epochs - train epochs
@@ -193,6 +193,7 @@ class Model:
             * beam=None - viterbi beam size for model evaluation during training
             * train_aprox=None - max train samples to aproximate train_score
             * val_aprox=None - max val samples to aproximate val_score
+            * batch_growth=None - num of epochs to double batch_size
         """
         assert epochs >= 2, 'epochs must be >= 2'
         self.start_fmin_l_bfgs_b_epoch = self.get_log()
@@ -209,7 +210,8 @@ class Model:
                                                            tqdm_bar,
                                                            beam,
                                                            train_aprox,
-                                                           val_aprox),
+                                                           val_aprox,
+                                                           batch_growth),
                                                      maxfun=epochs-1,
                                                      maxiter=epochs-1,
                                                      iprint=-1)
@@ -220,7 +222,7 @@ class Model:
 
 
 def _loss_and_grad(v, model, epochs, train_dataset, val_dataset, train, weight_decay,
-                  batch_size, save, tqdm_bar, beam, train_aprox, val_aprox):
+                  batch_size, save, tqdm_bar, beam, train_aprox, val_aprox, batch_growth):
     """
     see Model.train documentation
     """
@@ -241,7 +243,13 @@ def _loss_and_grad(v, model, epochs, train_dataset, val_dataset, train, weight_d
     # loss regularization term
     loss = -0.5 * weight_decay * np.dot(v, v)
 
-    batch_size = len(dataset.sentences) if batch_size is None else batch_size
+    if batch_size is None or batch_size == 0 or batch_size > len(dataset.sentences):
+        batch_size = len(dataset.sentences)
+    
+    if batch_growth is not None and batch_growth > 0:
+        batch_size = min(batch_size*(2**((epoch - start_epoch - 1)//batch_growth)), len(dataset.sentences))
+    print(batch_size)
+    
     loader = dataset.load_batch(batch_size, train, model.seed)
 
     if tqdm_bar:
@@ -294,18 +302,19 @@ def _loss_and_grad(v, model, epochs, train_dataset, val_dataset, train, weight_d
         if train:
             grad -= expected_count_nominator_vec / expected_count_denominator
 
+    loss /= batch_size
     if train:
-        train_loss = -loss/batch_size
-        val_loss = _loss_and_grad(v, model, 0, None, val_dataset, False, weight_decay, 0, False, tqdm_bar, 0, 0, 0)/len(val_dataset.sentences)
+        grad /= batch_size
 
-        if train_aprox is None:
-            train_aprox = len(train_dataset.sentences)
+    if train:
+        train_loss = -loss
+        val_loss = _loss_and_grad(v, model, 0, None, val_dataset, False, weight_decay, None, False, tqdm_bar, 0, 0, 0, None) if val_dataset is not None else 0.0
 
-        if val_aprox is None:
-            val_aprox = len(val_dataset.sentences)
+        train_aprox = len(train_dataset.sentences) if train_aprox is None else train_aprox
+        val_aprox = len(val_dataset.sentences) if (val_aprox is None and val_dataset is not None) else val_aprox
 
         train_score = model.score_func(*model.predict(train_dataset.sentences[:train_aprox], beam))
-        val_score = model.score_func(*model.predict(val_dataset.sentences[:val_aprox], beam))
+        val_score = model.score_func(*model.predict(val_dataset.sentences[:val_aprox], beam)) if val_dataset is not None else 0.0
 
         if val_aprox > 0:
             best = val_score > model.get_log('val_score', epoch='best')
@@ -376,7 +385,7 @@ def load_model(version='', models_path='', epoch=-1, seed=42, prints=True, from_
         import dill
     except:
         print('model load failed, could not import dill')
-        return None
+        return
 
     if from_file is None:
         model_path = os.path.join(models_path, naming_scheme(version, epoch, seed))
