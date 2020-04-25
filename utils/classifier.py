@@ -102,15 +102,21 @@ class Model:
             self.log = loaded_model.log
     
     def get_log(self, col='epoch', epoch=-1):
-        try:
-            if epoch == -1:
-                index = self.log.tail(1).index[0]
-            elif epoch == 'best':
+        if len(self.log) == 0:
+            if col == 'val_loss' or col == 'train_loss':
+                return 99999.9
+            else:
+                return 0
+        if epoch == -1:
+            index = self.log.tail(1).index[0]
+        elif epoch == 'best':
+            try:
                 index = self.log[self.log['best'] == True].tail(1).index[0]
-            elif isinstance(epoch, int):
-                index = epoch
-        except Exception:
-            return 0
+            except Exception:
+                index = self.log.tail(1).index[0]
+        elif isinstance(epoch, int):
+            index = epoch
+
         if col == 'epoch':
             return index
         else:
@@ -222,9 +228,9 @@ class Model:
                                                      maxfun=epochs-1,
                                                      maxiter=epochs-1,
                                                      iprint=-1)
+        self.weights = v_min.copy()
         self.weights_history.append(v_min)
         self.weights_history = self.weights_history[-self.max_weights_history:]
-        self.weights = v_min
         return v_min, f_min, d_min
 
 
@@ -234,8 +240,8 @@ def _loss_and_grad(v, model, epochs, train_dataset, val_dataset, train, weight_d
     see Model.train documentation
     """
     if train:
-        model.weights = v
-        model.weights_history.append(v)
+        model.weights = v.copy()
+        model.weights_history.append(model.weights)
         model.weights_history = model.weights_history[-model.max_weights_history:]
         start_epoch = model.start_fmin_l_bfgs_b_epoch
         epoch = model.get_log() + 1
@@ -307,7 +313,8 @@ def _loss_and_grad(v, model, epochs, train_dataset, val_dataset, train, weight_d
 
     if train:
         train_loss = -loss
-        val_loss = _loss_and_grad(v, model, 0, None, val_dataset, False, weight_decay, None, False, tqdm_bar, 0, 0, 0, None) if val_dataset is not None else 0.0
+        val_loss = _loss_and_grad(v=v, model=model, epochs=0, train_dataset=None, val_dataset=val_dataset, train=False, weight_decay=weight_decay, batch_size=None,
+                                  save=False, tqdm_bar=tqdm_bar, beam=0, train_aprox=0, val_aprox=0, batch_growth=None) if val_dataset is not None else 0.0
 
         train_aprox = len(train_dataset.sentences) if train_aprox is None else train_aprox
         val_aprox = len(val_dataset.sentences) if (val_aprox is None and val_dataset is not None) else val_aprox

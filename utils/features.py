@@ -86,7 +86,7 @@ class FeatureGroup:
         except Exception as e:
             index = False
         assert index, 'failed unit testing'
-        assert len(self.hash_table) > 0, 'self.hash_table is empty'
+        assert len(self.hash_table) > 0, f'self.hash_table for {self.feat_key} is empty'
 
     def __call__(self, t2, t1, w, i, t):
         try:
