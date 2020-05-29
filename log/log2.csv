@@ -122,4 +122,128 @@ version,epoch,seed,init,features,datasets,train_time,timestamp,train_loss,val_lo
     train_dataset = preprocess.Dataset('data/train2.wtag')
     val_dataset = preprocess.Dataset('data/comp2_tagged.wtag')
     return train_dataset, val_dataset
-",15.766395040353137,08:25:04 25-04-2020,2.8171861554685664,6.461997866137597,0.0,0.9232824275290084,0,0,250,0.0,1,"comp_acc=0.9232824275290084, 33 feat_groups, 4548 total_feats"
+",15.766395040353133,08:25:04 25-04-2020,2.8171861554685664,6.461997866137597,0.0,0.9232824275290084,0,0,250,0.0,1,"comp_acc=0.9232824275290084, 33 feat_groups, 4548 total_feats"
+2.3,32,42,"def w0_uniform_0_1():
+    return np.random.rand(len(feature_vector))
+","def create_feats(prints=True):
+    group_thresholds = {
+        # -------------------------------- feature --------------------- | -- Threshold --
+        lambda t2, t1, w, i, t: tuple([w[i].lower(), t]):                         0,     # mandatory feature f100
+        lambda t2, t1, w, i, t: tuple([w[i][-4:].lower(), t]):                    5,     # mandatory feature f101
+        lambda t2, t1, w, i, t: tuple([w[i][-3:].lower(), t]):                    5,     # mandatory feature f101
+        lambda t2, t1, w, i, t: tuple([w[i][-2:].lower(), t]):                    5,     # mandatory feature f101
+        lambda t2, t1, w, i, t: tuple([w[i][-1:].lower(), t]):                    5,     # mandatory feature f101
+        lambda t2, t1, w, i, t: tuple([w[i][:4].lower(), t]):                     5,     # mandatory feature f102
+        lambda t2, t1, w, i, t: tuple([w[i][:3].lower(), t]):                     5,     # mandatory feature f102
+        lambda t2, t1, w, i, t: tuple([w[i][:2].lower(), t]):                     5,     # mandatory feature f102
+        lambda t2, t1, w, i, t: tuple([w[i][:1].lower(), t]):                     5,     # mandatory feature f102
+        lambda t2, t1, w, i, t: tuple([t2, t1, t]):                               1,     # mandatory feature f103
+        lambda t2, t1, w, i, t: tuple([t1, t]):                                   1,     # mandatory feature f104
+        lambda t2, t1, w, i, t: tuple([t]):                                       1,     # mandatory feature f105
+        lambda t2, t1, w, i, t: tuple([w[i].islower(), t]):                       1,     # mandatory feature has_uppercase (inverted)
+        lambda t2, t1, w, i, t: tuple([any(char.isdigit() for char in w[i]), t]): 1,     # mandatory feature has_digits
+        lambda t2, t1, w, i, t: tuple([w[i-1].lower(), t]):                       20,
+        lambda t2, t1, w, i, t: tuple([w[i+1].lower(), t]):                       20,
+        lambda t2, t1, w, i, t: tuple([w[i+1][:3].lower(), t]):                   20,
+        lambda t2, t1, w, i, t: tuple([w[i-1][:3].lower(), t]):                   20,
+        lambda t2, t1, w, i, t: tuple([w[i+1][:2].lower(), t]):                   20,
+        lambda t2, t1, w, i, t: tuple([w[i-1][:2].lower(), t]):                   20,
+        lambda t2, t1, w, i, t: tuple([w[i+1][-3:].lower(), t]):                  20,
+        lambda t2, t1, w, i, t: tuple([w[i-1][-3:].lower(), t]):                  20,
+        lambda t2, t1, w, i, t: tuple([w[i+1][-2:].lower(), t]):                  20,
+        lambda t2, t1, w, i, t: tuple([w[i-1][-2:].lower(), t]):                  20,
+        lambda t2, t1, w, i, t: tuple([w[i].isalnum(), t]):                       1,
+        lambda t2, t1, w, i, t: tuple([w[i].isalpha(), t]):                       1,
+        lambda t2, t1, w, i, t: tuple([w[i].isascii(), t]):                       1,
+        lambda t2, t1, w, i, t: tuple([w[i].isdecimal(), t]):                     1,
+        lambda t2, t1, w, i, t: tuple([w[i].isdigit(), t]):                       1,
+        lambda t2, t1, w, i, t: tuple([w[i].isnumeric(), t]):                     1,
+        lambda t2, t1, w, i, t: tuple([w[i].istitle(), t]):                       1,
+        lambda t2, t1, w, i, t: tuple([w[i].isupper(), t]):                       1,
+        lambda t2, t1, w, i, t: tuple([len(w[i]), t]):                            1,
+    }
+
+    tic = time.time()
+    feature_vector = features.create_feature_vector(dataset=train_dataset,
+                                                    group_thresholds=group_thresholds,
+                                                    pruning=True,
+                                                    get_stats=False,
+                                                    assertions=True,
+                                                    calls_counter=False)
+
+    if prints:
+        print('feature_vector creation time:', time.time() - tic, 'sec\n')
+        for feat in feature_vector.feats:
+            print('feat_group:', feat, '| feats:', len(feat))
+    print('feat_groups:', len(feature_vector.feats), '| total_feats:', len(feature_vector))
+    return feature_vector
+","def load_datasets():
+#     train_dataset = preprocess.Dataset('data/train1.wtag')
+#     val_dataset = preprocess.Dataset('data/comp1_tagged.wtag')
+
+    train_dataset = preprocess.Dataset('data/train2.wtag')
+    val_dataset = preprocess.Dataset('data/comp2_tagged.wtag')
+    return train_dataset, val_dataset
+",42.30524732669196,15:55:22 26-04-2020,2.203676781699301,6.710140345916369,0.0,0.9234817975198372,0,50,250,0.0,1,"comp_acc=0.9234817975198373, 33 feat_groups, 4719 total_feats"
+2.1,28,42,"def w0_uniform_0_1():
+    return np.random.rand(len(feature_vector))
+","def create_feats(prints=True):
+    group_thresholds = {
+        # -------------------------------- feature --------------------- | -- Threshold --
+        lambda t2, t1, w, i, t: tuple([w[i].lower(), t]):                         0,     # mandatory feature f100
+        lambda t2, t1, w, i, t: tuple([w[i][-4:].lower(), t]):                    5,     # mandatory feature f101
+        lambda t2, t1, w, i, t: tuple([w[i][-3:].lower(), t]):                    5,     # mandatory feature f101
+        lambda t2, t1, w, i, t: tuple([w[i][-2:].lower(), t]):                    5,     # mandatory feature f101
+        lambda t2, t1, w, i, t: tuple([w[i][-1:].lower(), t]):                    5,     # mandatory feature f101
+        lambda t2, t1, w, i, t: tuple([w[i][:4].lower(), t]):                     5,     # mandatory feature f102
+        lambda t2, t1, w, i, t: tuple([w[i][:3].lower(), t]):                     5,     # mandatory feature f102
+        lambda t2, t1, w, i, t: tuple([w[i][:2].lower(), t]):                     5,     # mandatory feature f102
+        lambda t2, t1, w, i, t: tuple([w[i][:1].lower(), t]):                     5,     # mandatory feature f102
+        lambda t2, t1, w, i, t: tuple([t2, t1, t]):                               1,     # mandatory feature f103
+        lambda t2, t1, w, i, t: tuple([t1, t]):                                   1,     # mandatory feature f104
+        lambda t2, t1, w, i, t: tuple([t]):                                       1,     # mandatory feature f105
+        lambda t2, t1, w, i, t: tuple([w[i].islower(), t]):                       1,     # mandatory feature has_uppercase
+        lambda t2, t1, w, i, t: tuple([any(char.isdigit() for char in w[i]), t]): 1,     # mandatory feature has_digits
+        lambda t2, t1, w, i, t: tuple([w[i-1].lower(), t]):                       20,
+        lambda t2, t1, w, i, t: tuple([w[i+1].lower(), t]):                       20,
+        lambda t2, t1, w, i, t: tuple([w[i+1][:3].lower(), t]):                   20,
+        lambda t2, t1, w, i, t: tuple([w[i-1][:3].lower(), t]):                   20,
+        lambda t2, t1, w, i, t: tuple([w[i+1][:2].lower(), t]):                   20,
+        lambda t2, t1, w, i, t: tuple([w[i-1][:2].lower(), t]):                   20,
+        lambda t2, t1, w, i, t: tuple([w[i+1][-3:].lower(), t]):                  20,
+        lambda t2, t1, w, i, t: tuple([w[i-1][-3:].lower(), t]):                  20,
+        lambda t2, t1, w, i, t: tuple([w[i+1][-2:].lower(), t]):                  20,
+        lambda t2, t1, w, i, t: tuple([w[i-1][-2:].lower(), t]):                  20,
+        lambda t2, t1, w, i, t: tuple([w[i].isalnum(), t]):                       10,
+        lambda t2, t1, w, i, t: tuple([w[i].isalpha(), t]):                       10,
+        lambda t2, t1, w, i, t: tuple([w[i].isascii(), t]):                       10,
+        lambda t2, t1, w, i, t: tuple([w[i].isdecimal(), t]):                     10,
+        lambda t2, t1, w, i, t: tuple([w[i].isdigit(), t]):                       10,
+        lambda t2, t1, w, i, t: tuple([w[i].isnumeric(), t]):                     10,
+        lambda t2, t1, w, i, t: tuple([w[i].istitle(), t]):                       10,
+        lambda t2, t1, w, i, t: tuple([w[i].isupper(), t]):                       10,
+        lambda t2, t1, w, i, t: tuple([len(w[i]), t]):                            10,
+    }
+
+    tic = time.time()
+    feature_vector = features.create_feature_vector(dataset=train_dataset,
+                                                    group_thresholds=group_thresholds,
+                                                    pruning=True,
+                                                    get_stats=False,
+                                                    assertions=True,
+                                                    calls_counter=False)
+
+    if prints:
+        print('feature_vector creation time:', time.time() - tic, 'sec\n')
+        for feat in feature_vector.feats:
+            print('feat_group:', feat, '| feats:', len(feat))
+    print('feat_groups:', len(feature_vector.feats), '| total_feats:', len(feature_vector))
+    return feature_vector
+","def load_datasets():
+#     train_dataset = preprocess.Dataset('data/train1.wtag')
+#     val_dataset = preprocess.Dataset('data/comp1_tagged.wtag')
+
+    train_dataset = preprocess.Dataset('data/train2.wtag')
+    val_dataset = preprocess.Dataset('data/comp2_tagged.wtag')
+    return train_dataset, val_dataset
+",23.50362813870112,22:30:18 25-04-2020,2.655207140913701,6.719080255273512,0.0,0.9236811675106663,0,0,250,0.0,1,"comp_acc=0.9236811675106663, 33 feat_groups, 4548 total_feats"

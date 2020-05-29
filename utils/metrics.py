@@ -11,7 +11,7 @@ def accuracy(pred_tags, true_tags):
                     correct += 1
         else:
             total += 1
-            if pred == tag:
+            if preds == tags:
                 correct += 1
 
     if total > 0:

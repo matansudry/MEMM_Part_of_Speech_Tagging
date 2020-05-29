@@ -61,7 +61,6 @@ class Model:
         self.seed = seed
         self.models_path = models_path
         self.feature_vector = feature_vector
-        self.val_predictions = None
         self.score_func = score_func
         self.log = pd.DataFrame(columns=['train_time',
                                          'timestamp',
@@ -406,5 +405,6 @@ def load_model(version='', models_path='', epoch=-1, seed=42, prints=True, from_
         print("last val_score: {:.6f}".format(model.get_log('val_score')))
         print("best val_score: {:.4f} at epoch {:d}".format(model.get_log('val_score'), model.get_log('epoch', epoch='best')))
     return model
+
 
 
